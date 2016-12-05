@@ -1,0 +1,264 @@
+1 v-cycle
+case 0: shift = -9.54; break;
+case 1: shift = -10.06; break;
+case 2: shift = -10.06; break;
+coarsest linear solver: direct
+
+
+
+nev = 3, nb = 0, ne = 2
+==================== Brief of the dmatcsr ====================
+nr = 274625
+nc = 274625
+nn = 4018753
+============================= end ===========================
+==================== Brief of the dmatcsr ====================
+nr = 274625
+nc = 274625
+nn = 4018753
+============================= end ===========================
+********** amg parameters **********
+strong_connection_threshold          = 0.25
+strong_diagonally_dominant_threshold = 0
+truncation_threshold                 = 0.2
+positive_connected                   = 1
+interpolation_type                   = 1
+max_level                            = 100
+max_coarsest_dof                     = 70
+setup_phase_print_level              = 0
+
+linear_solver_base_type = 1
+
+cg_max_iter = 1000
+cg_tol      = 1e-14
+
+gs_max_iter = 1000
+gs_tol      = 1e-14
+
+amgcycle_tol                 = 1e-16
+amgcycle_coarsest_tol        = 1e-18
+amgcycle_mu                  = 1
+amgcycle_pre_post_smooth     = 50
+amgcycle_coarsest_level      = 0
+amgcycle_max_coarsest_smooth = 1000
+amgcycle_print_level         = 0
+
+amgsolver_tol                     = 1e-12
+amgsolver_max_cycle               = 100
+amgsolver_max_convergence_factor  = 0.99
+amgsolver_nmax_convergence_factor = 10
+amgsolver_print_level             = 0
+
+pcg_amg_tol         = 1e-14
+pcg_amg_max_iter    = 100
+pcg_amg_print_level = 0
+
+amgeigen_coarsest_level = 0
+amgeigen_nouter_iter    = 1
+amgeigen_print_level    = 1
+************************************
+
+init time: 4.772180
+INI : ndof = 274625, nCPT = 0, nFPT = 0, nSPT = 0
+PRE : ndof = 274625, nCPT = 125024, nFPT = 149601, nSPT = 0
+POST: ndof = 274625, nCPT = 125024, nFPT = 149601, nSPT = 0
+
+INI : ndof = 125024, nCPT = 0, nFPT = 0, nSPT = 0
+PRE : ndof = 125024, nCPT = 20835, nFPT = 104189, nSPT = 0
+POST: ndof = 125024, nCPT = 22725, nFPT = 102299, nSPT = 0
+
+INI : ndof = 22725, nCPT = 0, nFPT = 0, nSPT = 0
+PRE : ndof = 22725, nCPT = 3139, nFPT = 19586, nSPT = 0
+POST: ndof = 22725, nCPT = 7245, nFPT = 15480, nSPT = 0
+
+INI : ndof = 7245, nCPT = 0, nFPT = 9, nSPT = 0
+PRE : ndof = 7245, nCPT = 1967, nFPT = 5278, nSPT = 0
+POST: ndof = 7245, nCPT = 3407, nFPT = 3838, nSPT = 0
+
+INI : ndof = 3407, nCPT = 0, nFPT = 23, nSPT = 0
+PRE : ndof = 3407, nCPT = 1005, nFPT = 2402, nSPT = 0
+POST: ndof = 3407, nCPT = 1839, nFPT = 1568, nSPT = 0
+
+INI : ndof = 1839, nCPT = 0, nFPT = 20, nSPT = 0
+PRE : ndof = 1839, nCPT = 527, nFPT = 1312, nSPT = 0
+POST: ndof = 1839, nCPT = 943, nFPT = 896, nSPT = 0
+
+INI : ndof = 943, nCPT = 0, nFPT = 26, nSPT = 0
+PRE : ndof = 943, nCPT = 280, nFPT = 663, nSPT = 0
+POST: ndof = 943, nCPT = 461, nFPT = 482, nSPT = 0
+
+INI : ndof = 461, nCPT = 0, nFPT = 23, nSPT = 0
+PRE : ndof = 461, nCPT = 147, nFPT = 314, nSPT = 0
+POST: ndof = 461, nCPT = 220, nFPT = 241, nSPT = 0
+
+INI : ndof = 220, nCPT = 0, nFPT = 15, nSPT = 0
+PRE : ndof = 220, nCPT = 77, nFPT = 143, nSPT = 0
+POST: ndof = 220, nCPT = 102, nFPT = 118, nSPT = 0
+
+INI : ndof = 102, nCPT = 0, nFPT = 8, nSPT = 0
+PRE : ndof = 102, nCPT = 39, nFPT = 63, nSPT = 0
+POST: ndof = 102, nCPT = 48, nFPT = 54, nSPT = 0
+
+========================= multigrid =========================
+level =  0, nrow =  274625, nnz = 4018753, sparse = 14.633602
+level =  1, nrow =  125024, nnz = 7306298, sparse = 58.439164
+level =  2, nrow =   22725, nnz = 1603829, sparse = 70.575534
+level =  3, nrow =    7245, nnz = 1309233, sparse = 180.708489
+level =  4, nrow =    3407, nnz =  637705, sparse = 187.174934
+level =  5, nrow =    1839, nnz =  514775, sparse = 279.921153
+level =  6, nrow =     943, nnz =  301291, sparse = 319.502651
+level =  7, nrow =     461, nnz =  120541, sparse = 261.477223
+level =  8, nrow =     220, nnz =   37534, sparse = 170.609091
+level =  9, nrow =     102, nnz =    9468, sparse = 92.823529
+grid complexity = 1.589772, operator complexity = 3.946355
+=============================================================
+setup phase time: 5.465789
+=============== 0 ===============
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  8     0       1        0.000000000000000     0.002931
+  8     1       1        0.000000000000000     0.002353
+  8     2       1        0.000000000000000     0.002348
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  7     0       1        0.000000000000000     0.005729
+  7     1       1        0.000000000000000     0.005309
+  7     2       1        0.000000000000000     0.005283
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  6     0       1        0.000000000000000     0.013931
+  6     1       1        0.000000000000000     0.012231
+  6     2       1        0.000000000000000     0.012227
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  5     0       1        0.000000000000000     0.026967
+  5     1       1        0.000000000000000     0.024805
+  5     2       1        0.000000000000000     0.024778
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  4     0       1        0.000000000000000     0.044519
+  4     1       1        0.000000000000000     0.047778
+  4     2       1        0.000000000000000     0.047218
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  3     0       1        0.000000000000000     0.136316
+  3     1       1        0.000000000000000     0.144041
+  3     2       1        0.000000000000000     0.138885
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  2     0       1        0.000000000000000     0.458018
+  2     1       1        0.000000000333031     0.497340
+  2     2       1        0.000000000354421     0.502352
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  1     0       1        0.000000086602564     2.037648
+  1     1       1        0.000189279744168     2.184273
+  1     2       1        0.000191742963445     2.192407
+.......................................................
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  0     0       1        0.000104422158699     3.117631
+  0     1       1        0.276588780364211     3.276083
+  0     2       1        0.113964136039224     3.290758
+.......................................................
+direct eigen     time = 0.621662
+amg linear solve time = 18.257228
+expand matrix    time = 0.252611
+get new evec     time = 0.041026
+correction total time = 19.190159
+* 0 * approximate eigenvalue: 
+ 0:    9.511364356522197
+ 1:   10.047013473940700
+ 2:   10.047061128242298
+correction  0 time :   19.190179824829102
+correction  0 error:    0.000106305730606
+***************************************************
+***************************************************
+begin to correct eigenpair on the finest level...
+=============== 1 ===============
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  0     0       1        0.000015105781973     3.131608
+  0     1       1        0.014069989202487     3.284397
+  0     2       1        0.018519853902169     3.274464
+.......................................................
+direct eigen     time = 0.033224
+amg linear solve time = 9.693223
+expand matrix    time = 0.093748
+get new evec     time = 0.026502
+correction total time = 9.849577
+ 0:    9.511358359549355
+ 1:   10.046987203656563
+ 2:   10.046987308724647
+correction  1 time :    9.849592208862305
+correction  1 error:    0.000000218955977
+=============== 2 ===============
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  0     0       1        0.000005875872565     3.114302
+  0     1       1        0.003680853131794     3.264428
+  0     2       1        0.004032818617297     3.272802
+.......................................................
+direct eigen     time = 0.045165
+amg linear solve time = 9.654338
+expand matrix    time = 0.091810
+get new evec     time = 0.026169
+correction total time = 9.820337
+ 0:    9.511358341116631
+ 1:   10.046987157463453
+ 2:   10.046987158161475
+correction  2 time :    9.820353031158447
+correction  2 error:    0.000000003766971
+=============== 3 ===============
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  0     0       1        0.000004503018471     3.110675
+  0     1       1        0.001417719638749     3.263424
+  0     2       1        0.000286843962309     3.260042
+.......................................................
+direct eigen     time = 0.045449
+amg linear solve time = 9.636873
+expand matrix    time = 0.091766
+get new evec     time = 0.026324
+correction total time = 9.803298
+ 0:    9.511358341066927
+ 1:   10.046987155961880
+ 2:   10.046987156173840
+correction  3 time :    9.803313970565796
+correction  3 error:    0.000000000228058
+=============== 4 ===============
+.............. Eigen -- linear solver amg .............
+level   j   amgcycle            rn               time 
+  0     0       1        0.000004499024908     3.104147
+  0     1       1        0.000191926812392     3.262098
+  0     2       1        0.000088615578508     3.260082
+.......................................................
+direct eigen     time = 0.045323
+amg linear solve time = 9.629123
+expand matrix    time = 0.091945
+get new evec     time = 0.026419
+correction total time = 9.795735
+ 0:    9.511358341066439
+ 1:   10.046987155954582
+ 2:   10.046987155958940
+correction  4 time :    9.795752048492432
+correction  4 error:    0.000000000005866
+==================================
+=============== correction information ===============
+correction             error            ratio        time
+     0          0.000106305730606     --------     19.190180
+     1          0.000000218955977     0.002060     9.849592
+     2          0.000000003766971     0.017204     9.820353
+     3          0.000000000228058     0.060541     9.803314
+     4          0.000000000005866     0.025720     9.795752
+======================================================
+***************************************************
+******** whole correction time: 58.460201 *********
+***************************************************
