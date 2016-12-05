@@ -27,4 +27,30 @@ void List_delete(List *list, Node *n,
 
 void List_print(List *list, Node **local_head, Node **local_tail);
 
+typedef struct NODE_DOUBLE
+{
+    int index;
+    double value;
+    struct NODE_DOUBLE *prev;
+    struct NODE_DOUBLE *next;
+} DNode;
+
+typedef struct LIST_DOUBLE
+{
+    int nlist;
+    DNode *head;
+} DList;
+
+void DList_init(DList *list, DNode *n, 
+	        DNode **local_head, DNode **local_tail, 
+	        double *vec, int len);
+
+void DList_insert(DList *list, DNode *n, 
+	          DNode **local_head, DNode **local_tail);
+
+void DList_delete(DList *list, DNode *n, 
+	          DNode **local_head, DNode **local_tail);
+
+void DList_print(DList *list, DNode **local_head, DNode **local_tail);
+
 #endif

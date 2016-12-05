@@ -1290,152 +1290,152 @@ void Truncate_P(dmatcsr *P, amg_param param)
 }
 
 
-int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
-{
-    int i, j, k, t;
-    
-    imatcsr *ST = (imatcsr*)malloc(sizeof(imatcsr));
-    Transpose_imatcsr_struct(S, ST);
-    
-    int  A_nc  = A->nc;
-    int *S_ia  = S->ia;
-    int *S_ja  = S->ja;
-    int  ST_nr = ST->nr;
-    int *ST_ia = ST->ia;
-    int *ST_ja = ST->ja;
-    
-    srand(1);
-    double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
-    for(i=0; i<ST_nr; i++) lambda_ST[i] = ST_ia[i+1]-ST_ia[i] + (double)rand()/RAND_MAX;
-
-    int nUPT = 0;
-    for(i=0; i<A_nc; i++)//for(i=0; i<ST_nr; i++)
-    {
-	/* fasp判断方法：if(S_ia[i+1] == S_ia[i])，参考fasp, coarsening_rs.c, cfsplitting_cls */
-	if(S_ia[i+1] == S_ia[i]) /* i不受别的点影响（SPT或CPT），这个条件等价于A的第i行只有对角线为非零元，说明i可以直接求解出来，则i应为SPT.  */
-	{
-	    dof[i] = SPT;//SPT: 2
-	    nSPT++;
-	    lambda_ST[i] = 0.0;
-	}
-	else if(ST_ia[i+1] == ST_ia[i])/* i不影响别的点，但被别的点影响, 则i应为FPT或SPT, 但上一个if语句中判断是不是SPT，如果来到这里，说明为FPT */
-	{
-	    dof[i] = FPT;//FPT: 1
-	    nFPT++;
-	    lambda_ST[i] = 0.0;
-	}
-	else /* 如果上面两个if语句都不满足，说明i影响一些点，也有一些点影响i，UPT */
-	{
-	    dof[i] = UPT;
-	    nUPT++;
-	}
-    }
-#if DEBUG_PRE > 5
-    printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
-#endif
-
-    Node  *node       = (Node *)malloc(ndof   *sizeof(Node));
-    Node **local_head = (Node**)calloc(ndof*2, sizeof(Node*));
-    Node **local_tail = (Node**)calloc(ndof*2, sizeof(Node*));
-    List list;
-    List_init(&list, node, local_head, local_tail, lambda_ST, ndof);
-    
-#if ASSERT_PRE
-    assert(list.nlist == nUPT);
-#endif
-
-    int max_influence = ndof;
-    int max_influence_pos = -1;
-    
-    while(nUPT > 0)
-    {
-	max_influence     = list.head->value;
-	max_influence_pos = list.head->index;
-#if ASSERT_PRE
-        assert(nCPT+nFPT+nSPT+nUPT == ndof);
-#endif
-	if(max_influence == 0) break;
-	
-	if(UPT == dof[max_influence_pos])
-	{
-	    dof[max_influence_pos] = CPT;
-	    nCPT++;
-	    nUPT--;
-	    lambda_ST[max_influence_pos] = 0;
-	    List_delete(&list, node+max_influence_pos, local_head, local_tail);
-	    node[max_influence_pos].value = 0;
-#if ASSERT_PRE
-	    assert(list.nlist == nUPT);
-#endif
-	    for(i=ST_ia[max_influence_pos]; i<ST_ia[max_influence_pos+1]; i++)
-	    {
-		j = ST_ja[i];
-		if(dof[j] == UPT)
-		{
-		    dof[j] = FPT;
-		    nFPT++;
-		    nUPT--;
-		    lambda_ST[j] = 0;
-		    List_delete(&list, node+j, local_head, local_tail);
-		    node[j].value = 0;
-		    for(k=S_ia[j]; k<S_ia[j+1]; k++)
-		    {
-			if(dof[S_ja[k]] == UPT)
-			{
-			    lambda_ST[S_ja[k]]++;
-			    List_delete(&list, &node[S_ja[k]], local_head, local_tail);
-			    node[S_ja[k]].value++;
-			    List_insert(&list, &node[S_ja[k]], local_head, local_tail);
-			}
-		    }
-		}
-	    }    
-	    for(i=S_ia[max_influence_pos]; i<S_ia[max_influence_pos+1]; i++)
-	    {
-		j = S_ja[i];
-		if(dof[j] == UPT)
-		{
-		    lambda_ST[j]--;
-		    List_delete(&list, node+j, local_head, local_tail);
-		    node[j].value--;
-		    if(lambda_ST[j] > 0)
-		    {
-		        List_insert(&list, &node[j], local_head, local_tail);
-		    }
-		    else
-		    {
-		        /* 很少来到这一步，或者说测试有限元矩阵时候从未来到这一步，对应的 fasp 部分也是这样 */
-		        dof[j] = FPT;
-		        nFPT++;
-		        nUPT--;
-		        assert(list.nlist == nUPT);
-		        for(t=S_ia[j]; t<S_ia[j+1]; t++)
-		        {
-		            k = S_ja[t];
-		            if(dof[k] == UPT)
-		            {
-		                lambda_ST[k]++;
-		                List_delete(&list, node+k, local_head, local_tail);
-		                node[k].value++;
-		                List_insert(&list, &node[k], local_head, local_tail);
-		            }
-		        }
-		    }
-                }
-	    }
-	}
-    }
-    free(local_tail);
-    free(local_head);
-    free(node);
-    free(lambda_ST);
-    Free_imatcsr(ST);
-
-#if DEBUG_PRE > 5
-    printf("PRE : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
-#endif
-#if ASSERT_PRE
-    assert(nCPT+nFPT+nSPT == ndof);
-#endif
-    return nCPT;
-}
+//int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
+//{
+//    int i, j, k, t;
+//    
+//    imatcsr *ST = (imatcsr*)malloc(sizeof(imatcsr));
+//    Transpose_imatcsr_struct(S, ST);
+//    
+//    int  A_nc  = A->nc;
+//    int *S_ia  = S->ia;
+//    int *S_ja  = S->ja;
+//    int  ST_nr = ST->nr;
+//    int *ST_ia = ST->ia;
+//    int *ST_ja = ST->ja;
+//    
+//    srand(1);
+//    double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
+//    for(i=0; i<ST_nr; i++) lambda_ST[i] = ST_ia[i+1]-ST_ia[i] + (double)rand()/RAND_MAX;
+//
+//    int nUPT = 0;
+//    for(i=0; i<A_nc; i++)//for(i=0; i<ST_nr; i++)
+//    {
+//	/* fasp判断方法：if(S_ia[i+1] == S_ia[i])，参考fasp, coarsening_rs.c, cfsplitting_cls */
+//	if(S_ia[i+1] == S_ia[i]) /* i不受别的点影响（SPT或CPT），这个条件等价于A的第i行只有对角线为非零元，说明i可以直接求解出来，则i应为SPT.  */
+//	{
+//	    dof[i] = SPT;//SPT: 2
+//	    nSPT++;
+//	    lambda_ST[i] = 0.0;
+//	}
+//	else if(ST_ia[i+1] == ST_ia[i])/* i不影响别的点，但被别的点影响, 则i应为FPT或SPT, 但上一个if语句中判断是不是SPT，如果来到这里，说明为FPT */
+//	{
+//	    dof[i] = FPT;//FPT: 1
+//	    nFPT++;
+//	    lambda_ST[i] = 0.0;
+//	}
+//	else /* 如果上面两个if语句都不满足，说明i影响一些点，也有一些点影响i，UPT */
+//	{
+//	    dof[i] = UPT;
+//	    nUPT++;
+//	}
+//    }
+//#if DEBUG_PRE > 5
+//    printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+//#endif
+//
+//    Node  *node       = (Node *)malloc(ndof   *sizeof(Node));
+//    Node **local_head = (Node**)calloc(ndof*2, sizeof(Node*));
+//    Node **local_tail = (Node**)calloc(ndof*2, sizeof(Node*));
+//    List list;
+//    List_init(&list, node, local_head, local_tail, lambda_ST, ndof);
+//    
+//#if ASSERT_PRE
+//    assert(list.nlist == nUPT);
+//#endif
+//
+//    int max_influence = ndof;
+//    int max_influence_pos = -1;
+//    
+//    while(nUPT > 0)
+//    {
+//	max_influence     = list.head->value;
+//	max_influence_pos = list.head->index;
+//#if ASSERT_PRE
+//        assert(nCPT+nFPT+nSPT+nUPT == ndof);
+//#endif
+//	if(max_influence == 0) break;
+//	
+//	if(UPT == dof[max_influence_pos])
+//	{
+//	    dof[max_influence_pos] = CPT;
+//	    nCPT++;
+//	    nUPT--;
+//	    lambda_ST[max_influence_pos] = 0;
+//	    List_delete(&list, node+max_influence_pos, local_head, local_tail);
+//	    node[max_influence_pos].value = 0;
+//#if ASSERT_PRE
+//	    assert(list.nlist == nUPT);
+//#endif
+//	    for(i=ST_ia[max_influence_pos]; i<ST_ia[max_influence_pos+1]; i++)
+//	    {
+//		j = ST_ja[i];
+//		if(dof[j] == UPT)
+//		{
+//		    dof[j] = FPT;
+//		    nFPT++;
+//		    nUPT--;
+//		    lambda_ST[j] = 0;
+//		    List_delete(&list, node+j, local_head, local_tail);
+//		    node[j].value = 0;
+//		    for(k=S_ia[j]; k<S_ia[j+1]; k++)
+//		    {
+//			if(dof[S_ja[k]] == UPT)
+//			{
+//			    lambda_ST[S_ja[k]]++;
+//			    List_delete(&list, &node[S_ja[k]], local_head, local_tail);
+//			    node[S_ja[k]].value++;
+//			    List_insert(&list, &node[S_ja[k]], local_head, local_tail);
+//			}
+//		    }
+//		}
+//	    }    
+//	    for(i=S_ia[max_influence_pos]; i<S_ia[max_influence_pos+1]; i++)
+//	    {
+//		j = S_ja[i];
+//		if(dof[j] == UPT)
+//		{
+//		    lambda_ST[j]--;
+//		    List_delete(&list, node+j, local_head, local_tail);
+//		    node[j].value--;
+//		    if(lambda_ST[j] > 0)
+//		    {
+//		        List_insert(&list, &node[j], local_head, local_tail);
+//		    }
+//		    else
+//		    {
+//		        /* 很少来到这一步，或者说测试有限元矩阵时候从未来到这一步，对应的 fasp 部分也是这样 */
+//		        dof[j] = FPT;
+//		        nFPT++;
+//		        nUPT--;
+//		        assert(list.nlist == nUPT);
+//		        for(t=S_ia[j]; t<S_ia[j+1]; t++)
+//		        {
+//		            k = S_ja[t];
+//		            if(dof[k] == UPT)
+//		            {
+//		                lambda_ST[k]++;
+//		                List_delete(&list, node+k, local_head, local_tail);
+//		                node[k].value++;
+//		                List_insert(&list, &node[k], local_head, local_tail);
+//		            }
+//		        }
+//		    }
+//                }
+//	    }
+//	}
+//    }
+//    free(local_tail);
+//    free(local_head);
+//    free(node);
+//    free(lambda_ST);
+//    Free_imatcsr(ST);
+//
+//#if DEBUG_PRE > 5
+//    printf("PRE : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+//#endif
+//#if ASSERT_PRE
+//    assert(nCPT+nFPT+nSPT == ndof);
+//#endif
+//    return nCPT;
+//}
