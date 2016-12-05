@@ -9,6 +9,7 @@ SOURCE  = $(wildcard *.c)
 TARGETS = $(SOURCE:%.c=%)
 .PHONY: clean $(TARGETS) all
 #################################################
+test_list:test_list.exe
 test_matrix:test_matrix.exe
 test_multigrid:test_multigrid.exe
 test_cg:test_cg.exe

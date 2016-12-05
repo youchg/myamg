@@ -256,11 +256,13 @@ void DList_init(DList *list, DNode *n,
     int i;
     for(i=0; i<len; i++)
     {
+	//printf("init i = %d\n", i);
 	(n+i)->index = i;
 	(n+i)->value = vec[i];
 	if(vec[i] > 0)
 	{
 	    DList_insert(list, n+i, local_head, local_tail);
+	    //DList_print(list, local_head, local_tail);
 	}
     }
 }
@@ -282,10 +284,11 @@ void DList_insert(DList *list, DNode *n,
     }
     
     DNode *q = list->head;
-    int ivalue_q = (int)q->value;
     DNode *t;
     while(NULL != q)
     {
+	int ivalue_q = (int)q->value;
+
 	if(ivalue_n > ivalue_q)
 	{
 	    local_head[ivalue_n] = n;
@@ -434,45 +437,47 @@ void DList_print(DList *list, DNode **local_head, DNode **local_tail)
     {
         DNode *node = list->head;
 	int ivalue_node = (int)node->value;
+        printf("[ i]   value   index  prev  next\n");
         if(node->next == NULL)// single element list
         {
-            printf("i = 0, value = %f, index = %d, prev = NULL, next = NULL", node->value, node->index);
-            if(local_head[ivalue_node] == node)
-                printf(", local head");
-            if(local_tail[ivalue_node] == node)
-                printf(", local tail");
+            printf("[00]  %f %d NULL NULL", node->value, node->index);
+	    printf("    ");
+            if(local_head[ivalue_node] == node) printf("H");
+            if(local_tail[ivalue_node] == node) printf("T");
             printf("\n");
             i++;
         }
         else
         {
-            printf("i = 0, value = %f, index = %d, prev = NULL, next = %d",
-                   node->value, node->index, node->next->index);
-            if(local_head[ivalue_node] == node) printf(", local head");
-            if(local_tail[ivalue_node] == node) printf(", local tail");
+            printf("[00] %f    %02d   NULL   %02d", node->value, node->index, node->next->index);
+	    printf("    ");
+            if(local_head[ivalue_node] == node) printf("H");
+            if(local_tail[ivalue_node] == node) printf("T");
             printf("\n");
 #if ASSERT_LIST
             assert(node->index == node->next->prev->index);
 #endif
             i++;
             node = node->next;
+	    ivalue_node = (int)node->value;
             while(node->next != NULL)// && i<list->nlist)
             {
-                printf("i = %d, value = %f, index = %d, prev = %d, next = %d",
-                       i++, node->value, node->index, node->prev->index, node->next->index);
-                if(local_head[ivalue_node] == node) printf(", local head");
-                if(local_tail[ivalue_node] == node) printf(", local tail");
+                printf("[%02d] %f    %02d    %02d    %02d", i++, node->value, node->index, node->prev->index, node->next->index);
+		printf("    ");
+                if(local_head[ivalue_node] == node) printf("H");
+                if(local_tail[ivalue_node] == node) printf("T");
                 printf("\n");
 #if ASSERT_LIST
                 assert(node->index == node->next->prev->index);
                 assert(node->index == node->prev->next->index);
 #endif
                 node = node->next;
+		ivalue_node = (int)node->value;
             }
-            printf("i = %d, value = %f, index = %d, prev = %d, next = NULL",
-                   i++, node->value, node->index, node->prev->index);
-            if(local_head[ivalue_node] == node) printf(", local head");
-            if(local_tail[ivalue_node] == node) printf(", local tail");
+            printf("[%02d] %f    %02d    %02d   NULL", i++, node->value, node->index, node->prev->index);
+	    printf("   ");
+            if(local_head[ivalue_node] == node) printf("H");
+            if(local_tail[ivalue_node] == node) printf("T");
             printf("\n");
 #if ASSERT_LIST
             assert(node->index == node->prev->next->index);
