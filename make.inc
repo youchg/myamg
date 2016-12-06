@@ -7,7 +7,7 @@ CLIB = $(HOME)/lib
 CBIN = $(HOME)/bin
 CDAT = $(HOME)/dat
 
-version = 0.1
+version = 0.3
 
 ######################## include ############################
 INC_UMFPACK = -I$(HOME)/../../SuiteSparse/UMFPACK/Include/ \
