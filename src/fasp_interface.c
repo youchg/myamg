@@ -112,14 +112,19 @@ void Free_fasp_data(AMG_data *mgl)
         //if (&mgl[i].A) { fasp_dcsr_free(&mgl[i].A); }
         //if (&mgl[i].P) { fasp_dcsr_free(&mgl[i].P); }
         //if (&mgl[i].R) { fasp_dcsr_free(&mgl[i].R); }
-        if (&mgl[i].b) { fasp_dvec_free(&mgl[i].b); }
-        if (&mgl[i].x) { fasp_dvec_free(&mgl[i].x); }
-        if (&mgl[i].w) { fasp_dvec_free(&mgl[i].w); }
-        if (&mgl[i].cfmark) { fasp_ivec_free(&mgl[i].cfmark); }
-        if (&mgl[i].LU) { fasp_ilu_data_free(&mgl[i].LU); }
-        
-        if (&mgl[i].Schwarz) {fasp_Schwarz_data_free (&mgl[i].Schwarz);}
+        //if (&mgl[i].b) { fasp_dvec_free(&mgl[i].b); }
+        //if (&mgl[i].x) { fasp_dvec_free(&mgl[i].x); }
+        //if (&mgl[i].w) { fasp_dvec_free(&mgl[i].w); }
+        //if (&mgl[i].cfmark) { fasp_ivec_free(&mgl[i].cfmark); }
+        //if (&mgl[i].LU) { fasp_ilu_data_free(&mgl[i].LU); }
+        //if (&mgl[i].Schwarz) {fasp_Schwarz_data_free (&mgl[i].Schwarz);}
         //if (&mgl[i].schwarz) {fasp_schwarz_data_free (&mgl[i].schwarz);}
+        fasp_dvec_free(&mgl[i].b);
+        fasp_dvec_free(&mgl[i].x);
+        fasp_dvec_free(&mgl[i].w);
+        fasp_ivec_free(&mgl[i].cfmark);
+        fasp_ilu_data_free(&mgl[i].LU);
+        fasp_Schwarz_data_free (&mgl[i].Schwarz);
     }
     
     for (i=0; i<mgl->near_kernel_dim; ++i) {
