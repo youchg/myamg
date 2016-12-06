@@ -1,4 +1,4 @@
-CC    = gcc
+CC    = gcc-6
 #CC    = mpicc
 CFLAG = -g -W -Wall -Wextra -Wfloat-equal -O3 
 
