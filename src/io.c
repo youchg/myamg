@@ -247,7 +247,7 @@ void Write_dmatcsr_ps (dmatcsr *A, const char *filename)
     double dot1 = 20.0/(double)A->nr;
     double dot2 = (double)size/1000.0;
     double dot = dot2>dot1 ? dot2 : dot1;
-    int lineWidth = 0.5;
+    int lineWidth = 1;
     double step = (double)size/(double)(A->nr-1);
     int i, j;
     
