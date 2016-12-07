@@ -17,6 +17,7 @@
 #define DEBUG_GEN_SPA_P 0
 #define DEBUG_GEN_P     0
 #define DEBUG_TRUNC     0
+#define DEBUG_CLJP      0
 
 #define ASSERT_GEN_S     1
 #define ASSERT_PRE       1
@@ -24,6 +25,7 @@
 #define ASSERT_GEN_SPA_P 1
 #define ASSERT_GEN_P     1
 #define ASSERT_TRUNC     1
+#define ASSERT_CJLP      1
 
 static int nCPT = 0;
 static int nFPT = 0;
@@ -1330,25 +1332,37 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    nUPT++;
 	}
     }
-#if DEBUG_PRE > 5
+#if DEBUG_CJLP > 5
     printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
 #endif
 
-    DNode  *node       = (DNode *)malloc(ndof   *sizeof(DNode));
-    DNode **local_head = (DNode**)calloc(ndof*2, sizeof(DNode*));
-    DNode **local_tail = (DNode**)calloc(ndof*2, sizeof(DNode*));
-    DList list;
-    DList_init(&list, node, local_head, local_tail, lambda_ST, ndof);
-    
-#if ASSERT_PRE
-    assert(list.nlist == nUPT);
-#endif
-
-    int max_influence = ndof;
-    int max_influence_pos = -1;
-    
     while(nUPT > 0)
     {
+	Get_independent_set(S, ST, lambda_ST, D, nD);
+	for(iD=0; iD<nD; iD++)
+	{
+	    i = S_ja[iD];
+	    for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+	    {
+		j = S_ja[jS];
+		if(j > -1)
+		{
+		    S_ja[jS] = -S_ja[jS] - 1;
+		    if(0 == D[j]) // j not in D
+		    {
+			lambda_ST[j]--;
+			if(lambda_ST[j] < 1) dof[j] = FPT;
+		    }
+		}
+	    }
+
+	    for(jS=ST_ia[i]; jS<S_ia[i+1]; jS++)
+	    {
+
+	    }
+	    dof[i] = CPT;
+	}
+
 	max_influence     = list.head->value;
 	max_influence_pos = list.head->index;
 #if ASSERT_PRE
@@ -1438,4 +1452,13 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     assert(nCPT+nFPT+nSPT == ndof);
 #endif
     return nCPT;
+}
+
+void Get_independent_set_D(imatcsr *S, imatcsr *ST, int *lambda_ST, int *point, int npoint, intD)
+{
+    int i;
+    while(nleft != 0)
+    {
+
+
 }
