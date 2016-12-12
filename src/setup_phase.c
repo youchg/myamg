@@ -10,7 +10,7 @@
 #include "amg_param.h"
 #include "setup_phase.h"
 
-#define DETAIL_TIME  0
+#define DETAIL_TIME  9
 
 void Setup_phase(multigrid *amg, amg_param param)
 {
@@ -60,10 +60,10 @@ void Setup_phase(multigrid *amg, amg_param param)
 int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr *MH, amg_param param)
 {
 #if DETAIL_TIME > 3
-    printf("****************************************\n");
     double t1, t2, tb, te;
     double time_gen_S;
     double time_pre, time_post;
+    double time_CLJP;
     double time_gen_spa_P, time_gen_P;
     double time_gen_R;
     double time_gen_AH;
@@ -81,23 +81,42 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
 #endif
 
     Generate_strong_coupling_set(A, S, param);
-    
 #if DETAIL_TIME > 3
     t2 = Get_time(); time_gen_S = t2 - t1; 
     printf("gen  S       : %f\n", time_gen_S);
     t1 = Get_time();
 #endif
 
-    ncpt = Pre_split(A, S, dof);
-    //ncpt = Pre_split_fasp(A, S, dof);
-    
+    if(STD_RS == param.coarsening_type)
+    {
+	ncpt = Pre_split(A, S, dof);
+	//ncpt = Pre_split_fasp(A, S, dof);
 #if DETAIL_TIME > 3
-    t2 = Get_time(); time_pre = t2 - t1; 
-    printf("pre  spliting: %f\n", time_pre);
-    t1 = Get_time();
+	t2 = Get_time(); time_pre = t2 - t1; 
+	printf("pre  spliting: %f\n", time_pre);
+	t1 = Get_time();
 #endif
 
-    ncpt = Post_split(S, dof);
+	ncpt = Post_split(S, dof);
+#if DETAIL_TIME > 3
+	t2 = Get_time(); time_post = t2 - t1; 
+	printf("post spliting: %f\n", time_post);
+#endif
+    }
+    else if(CLJP == param.coarsening_type)
+    {
+	printf("coarsening type: CLJP\n");
+	ncpt = CLJP_split(A, S, dof);
+#if DETAIL_TIME > 3
+	t2 = Get_time(); time_CLJP = t2 - t1; 
+	printf("CLJP spliting: %f\n", time_CLJP);
+#endif
+    }
+
+#if DETAIL_TIME > 3
+	t1 = Get_time();
+#endif
+
     if(ncpt < param.max_coarsest_dof)
     {
 	Free_imatcsr(S);
@@ -105,12 +124,6 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
 	return FAIL;
     }
     
-#if DETAIL_TIME > 3
-    t2 = Get_time(); time_post = t2 - t1; 
-    printf("post spliting: %f\n", time_post);
-    t1 = Get_time();
-#endif
-
     if(param.interpolation_type == DIR)
     {
         Generate_sparsity_P_dir(S, dof, P);
@@ -164,7 +177,7 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
 #if DETAIL_TIME > 3
     te = Get_time(); time_total = te - tb;
     printf("total        : %f\n", time_total);
-    printf("****************************************\n");
+    printf("****************************************\n\n");
 #endif
     return SUCCESS;
 }

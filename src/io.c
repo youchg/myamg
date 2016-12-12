@@ -736,6 +736,23 @@ void Input_amg_param(const char *filename, amg_param *param, dmatcsr **A, dmatcs
 	    param->positive_connected = ivalue;
 	    if(!fgets(buffer, 512, file)) break;
 	}
+	else if(0 == strcmp(buffer, "coarsening_type"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->coarsening_type = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
 	else if(0 == strcmp(buffer, "interpolation_type"))
 	{
 	    status = fscanf(file, "%s", buffer);
@@ -1214,6 +1231,7 @@ void Print_amg_param(amg_param param)
     printf("strong_diagonally_dominant_threshold = %g\n", param.strong_diagonally_dominant_threshold);
     printf("truncation_threshold                 = %g\n", param.truncation_threshold);
     printf("positive_connected                   = %d\n", param.positive_connected);
+    printf("coarsening_type                      = %d\n", param.coarsening_type);
     printf("interpolation_type                   = %d\n", param.interpolation_type);
     printf("max_level                            = %d\n", param.max_level);
     printf("max_coarsest_dof                     = %d\n", param.max_coarsest_dof);

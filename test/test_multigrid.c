@@ -13,9 +13,9 @@ int main(int argc, char* argv[])
 {
     dmatcsr *A;
     amg_param param;
-    Init_argv(argc, argv, &param, &A, NULL, NULL);
+    Init_amg_param_argv(argc, argv, &param, &A, NULL, NULL);
     //Print_amg_param(param);
-    multigrid *amg = Build_amg(A, NULL, 15);
+    multigrid *amg = Build_amg(A, NULL, 2);
     Setup_phase(amg, param);
     Print_amg(amg);
     Free_multigrid(amg);

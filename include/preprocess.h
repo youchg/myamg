@@ -71,6 +71,12 @@
 #define SPT -3 /**< solitary  grid point */
 
 /**
+ * \brief coarsening type
+ */
+#define STD_RS 1
+#define CLJP   2
+
+/**
  * \brief interpolation type
  */
 #define DIR 1

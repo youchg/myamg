@@ -7,6 +7,7 @@ void Init_amg_param(amg_param *param)
     param->strong_diagonally_dominant_threshold = 0.1;
     param->truncation_threshold                 = 0.2;
     param->positive_connected                   = NO;
+    param->coarsening_type                      = STD_RS;
     param->interpolation_type                   = DIR;
     param->max_level                            = 20;
     param->max_coarsest_dof                     = 100;

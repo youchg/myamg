@@ -26,7 +26,7 @@ LIB_UMFPACK = $(HOME)/../../SuiteSparse/UMFPACK/Lib/libumfpack.a \
               $(HOME)/../../SuiteSparse/SuiteSparse_config/libsuitesparseconfig.a \
               $(HOME)/../../SuiteSparse/CHOLMOD/Lib/libcholmod.a \
               $(HOME)/../../SuiteSparse/COLAMD/Lib/libcolamd.a \
-              $(HOME)/../../BLAS-3.5.0/blas_LINUX.a -lgfortran
+              $(HOME)/../../BLAS/blas_LINUX.a -lgfortran
 
 LIB_FASP    = $(HOME)/../../faspsolver/lib/libfasp.a -lgfortran
 

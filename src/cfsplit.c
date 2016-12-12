@@ -14,10 +14,10 @@
 #define  DEBUG_GEN_S     0
 #define ASSERT_GEN_S     1
 
-#define  DEBUG_PRE       0
+#define  DEBUG_PRE       9
 #define ASSERT_PRE       1
 
-#define  DEBUG_POST      0 
+#define  DEBUG_POST      9 
 #define ASSERT_POST      1
 
 #define  DEBUG_GEN_SPA_P 0
@@ -29,8 +29,8 @@
 #define  DEBUG_TRUNC     0
 #define ASSERT_TRUNC     1
 
-#define  DEBUG_CLJP      0
-#define ASSERT_CJLP      1
+#define  DEBUG_CLJP      9
+#define ASSERT_CLJP      1
 
 static int nCPT = 0;
 static int nFPT = 0;
@@ -1304,6 +1304,8 @@ void Truncate_P(dmatcsr *P, amg_param param)
 
 int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 {
+    printf("CLJP spliting...\n");
+
     int i, j, k;
     
     imatcsr *ST = (imatcsr*)malloc(sizeof(imatcsr));
@@ -1344,16 +1346,21 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    //nUPT++;
 	}
     }
-#if DEBUG_CJLP > 5
-    printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+#if DEBUG_CLJP > 5
+    printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
 #endif
 
     int iUPT, jS, kS;
+    int iwhile = 0;
     while(1)
     {
+	iwhile++;
+	printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
+	printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
+	    //printf("dof[%d] = %d\n", i, dof[i]);
 	    if((dof[i]!=CPT) && (lambda_ST[i]<1))
 	    {
 		dof[i] = FPT;
@@ -1364,7 +1371,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		    if(S_ja[jS] > -1) {dof[i] = UPT; nFPT--;}
 		}
 	    }
-	    if(UPT != dof[i])
+	    if((CPT==dof[i]) || (FPT==dof[i]))
 	    {
 		lambda_ST[i] = 0.0;
 		nUPT--;
@@ -1373,6 +1380,9 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		iUPT--;
 	    }
 	}
+	
+	printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+	printf("middle -- iwhile = %d, nUPT = %d\n\n", iwhile, nUPT);
 
 	if(nUPT == 0) break;
 
@@ -1381,6 +1391,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
+	    printf("i = %2d, dof[%2d] = %d\n", i, i, dof[i]);
 	    if((dof[i]==DPT) || (dof[i]==CPT) || (dof[i]==COMMON_CPT))
 	    //if(dof[i] > 0)
 	    {
@@ -1389,12 +1400,18 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
 		    j = S_ja[jS];
+		    printf("    j = %2d\n", j);
 		    if(j > -1)
 		    {
 			S_ja[jS] = -S_ja[jS] - 1;
-			if(dof[j] != DPT) lambda_ST[j]--;
+			if(dof[j] != DPT)
+			{
+			    lambda_ST[j]--;
+			    printf("        i = %2d, dof[%2d] = %d, lambda_ST[%2d] = %f\n", i, j, dof[j], j, lambda_ST[j]);
+			}
 		    }
 		}
+		printf("\n");
 	    }
 	    else
 	    {
@@ -1447,7 +1464,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     free(upt_vec);
 
 #if DEBUG_CLJP > 5
-    printf("CLJP PRE : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+    printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
 #endif
 #if ASSERT_CLJP
     assert(nCPT+nFPT+nSPT == ndof);

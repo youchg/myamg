@@ -8,6 +8,7 @@ typedef struct AMG_PARAMATER_
     double strong_diagonally_dominant_threshold;
     double truncation_threshold;
     int    positive_connected;
+    int    coarsening_type;
     int    interpolation_type;
     int    max_level;
     int    max_coarsest_dof;
