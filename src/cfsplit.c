@@ -11,20 +11,25 @@
 #include "list.h"
 #include "amg_param.h"
 
-#define DEBUG_GEN_S     0
-#define DEBUG_PRE       0
-#define DEBUG_POST      0 
-#define DEBUG_GEN_SPA_P 0
-#define DEBUG_GEN_P     0
-#define DEBUG_TRUNC     0
-#define DEBUG_CLJP      0
-
+#define  DEBUG_GEN_S     0
 #define ASSERT_GEN_S     1
+
+#define  DEBUG_PRE       0
 #define ASSERT_PRE       1
+
+#define  DEBUG_POST      0 
 #define ASSERT_POST      1
+
+#define  DEBUG_GEN_SPA_P 0
 #define ASSERT_GEN_SPA_P 1
+
+#define  DEBUG_GEN_P     0
 #define ASSERT_GEN_P     1
+
+#define  DEBUG_TRUNC     0
 #define ASSERT_TRUNC     1
+
+#define  DEBUG_CLJP      0
 #define ASSERT_CJLP      1
 
 static int nCPT = 0;
@@ -34,6 +39,11 @@ static int ndof = 0;
 
 static int Generate_strong_coupling_set_negtive (dmatcsr *A, imatcsr *S, amg_param param);
 static int Generate_strong_coupling_set_positive(dmatcsr *A, imatcsr *S, amg_param param);
+
+#define        DPT  5
+#define    NOT_DPT -5
+#define COMMON_CPT  7
+static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof);
 
 void Reset_dof(dmatcsr *A)
 {
@@ -1294,7 +1304,7 @@ void Truncate_P(dmatcsr *P, amg_param param)
 
 int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 {
-    int i, j, k, t;
+    int i, j, k;
     
     imatcsr *ST = (imatcsr*)malloc(sizeof(imatcsr));
     Transpose_imatcsr_struct(S, ST);
@@ -1304,13 +1314,14 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     int *S_ja  = S->ja;
     int  ST_nr = ST->nr;
     int *ST_ia = ST->ia;
-    int *ST_ja = ST->ja;
+    //int *ST_ja = ST->ja;
     
     srand(1);
     double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
     for(i=0; i<ST_nr; i++) lambda_ST[i] = ST_ia[i+1]-ST_ia[i] + (double)rand()/RAND_MAX;
 
     int nUPT = 0;
+    int *upt_vec = (int*)calloc(ndof, sizeof(int));
     for(i=0; i<A_nc; i++)//for(i=0; i<ST_nr; i++)
     {
 	/* fasp判断方法：if(S_ia[i+1] == S_ia[i])，参考fasp, coarsening_rs.c, cfsplitting_cls */
@@ -1329,136 +1340,164 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	else /* 如果上面两个if语句都不满足，说明i影响一些点，也有一些点影响i，UPT */
 	{
 	    dof[i] = UPT;
-	    nUPT++;
+	    upt_vec[nUPT++] = i;
+	    //nUPT++;
 	}
     }
 #if DEBUG_CJLP > 5
     printf("CLJP INI : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
 #endif
 
-    while(nUPT > 0)
+    int iUPT, jS, kS;
+    while(1)
     {
-	Get_independent_set(S, ST, lambda_ST, D, nD);
-	for(iD=0; iD<nD; iD++)
+	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
-	    i = S_ja[iD];
-	    for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+	    i = upt_vec[iUPT];
+	    if((dof[i]!=CPT) && (lambda_ST[i]<1))
 	    {
-		j = S_ja[jS];
-		if(j > -1)
+		dof[i] = FPT;
+		nFPT++;
+		//make sure all dependencies have been accounted for
+		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
-		    S_ja[jS] = -S_ja[jS] - 1;
-		    if(0 == D[j]) // j not in D
-		    {
-			lambda_ST[j]--;
-			if(lambda_ST[j] < 1) dof[j] = FPT;
-		    }
+		    if(S_ja[jS] > -1) {dof[i] = UPT; nFPT--;}
 		}
 	    }
-
-	    for(jS=ST_ia[i]; jS<S_ia[i+1]; jS++)
+	    if(UPT != dof[i])
 	    {
-
+		lambda_ST[i] = 0.0;
+		nUPT--;
+		upt_vec[iUPT] = upt_vec[nUPT];
+		upt_vec[nUPT] = i;
+		iUPT--;
 	    }
-	    dof[i] = CPT;
 	}
 
-	max_influence     = list.head->value;
-	max_influence_pos = list.head->index;
-#if ASSERT_PRE
-        assert(nCPT+nFPT+nSPT+nUPT == ndof);
-#endif
-	if(max_influence == 0) break;
-	
-	if(UPT == dof[max_influence_pos])
+	if(nUPT == 0) break;
+
+	Get_independent_set_D(S, ST, lambda_ST, upt_vec, nUPT, dof);
+
+	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
-	    dof[max_influence_pos] = CPT;
-	    nCPT++;
-	    nUPT--;
-	    lambda_ST[max_influence_pos] = 0;
-	    List_delete(&list, node+max_influence_pos, local_head, local_tail);
-	    node[max_influence_pos].value = 0;
-#if ASSERT_PRE
-	    assert(list.nlist == nUPT);
-#endif
-	    for(i=ST_ia[max_influence_pos]; i<ST_ia[max_influence_pos+1]; i++)
+	    i = upt_vec[iUPT];
+	    if((dof[i]==DPT) || (dof[i]==CPT) || (dof[i]==COMMON_CPT))
+	    //if(dof[i] > 0)
 	    {
-		j = ST_ja[i];
-		if(dof[j] == UPT)
+		dof[i] = CPT;
+		nCPT++;
+		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
-		    dof[j] = FPT;
-		    nFPT++;
-		    nUPT--;
-		    lambda_ST[j] = 0;
-		    List_delete(&list, node+j, local_head, local_tail);
-		    node[j].value = 0;
-		    for(k=S_ia[j]; k<S_ia[j+1]; k++)
+		    j = S_ja[jS];
+		    if(j > -1)
 		    {
-			if(dof[S_ja[k]] == UPT)
-			{
-			    lambda_ST[S_ja[k]]++;
-			    List_delete(&list, &node[S_ja[k]], local_head, local_tail);
-			    node[S_ja[k]].value++;
-			    List_insert(&list, &node[S_ja[k]], local_head, local_tail);
-			}
+			S_ja[jS] = -S_ja[jS] - 1;
+			if(dof[j] != DPT) lambda_ST[j]--;
 		    }
 		}
-	    }    
-	    for(i=S_ia[max_influence_pos]; i<S_ia[max_influence_pos+1]; i++)
+	    }
+	    else
 	    {
-		j = S_ja[i];
-		if(dof[j] == UPT)
+		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
-		    lambda_ST[j]--;
-		    List_delete(&list, node+j, local_head, local_tail);
-		    node[j].value--;
-		    if(lambda_ST[j] > 0)
+		    j = S_ja[jS];
+		    if(j < 0) j = -j - 1;
+		    if((dof[j]==DPT) || (dof[j]==CPT) || (dof[j]==COMMON_CPT))
+		    //if(dof[i] > 0)
 		    {
-		        List_insert(&list, &node[j], local_head, local_tail);
+			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
+			dof[j] = COMMON_CPT;
 		    }
 		    else
 		    {
-		        /* 很少来到这一步，或者说测试有限元矩阵时候从未来到这一步，对应的 fasp 部分也是这样 */
-		        dof[j] = FPT;
-		        nFPT++;
-		        nUPT--;
-		        assert(list.nlist == nUPT);
-		        for(t=S_ia[j]; t<S_ia[j+1]; t++)
-		        {
-		            k = S_ja[t];
-		            if(dof[k] == UPT)
-		            {
-		                lambda_ST[k]++;
-		                List_delete(&list, node+k, local_head, local_tail);
-		                node[k].value++;
-		                List_insert(&list, &node[k], local_head, local_tail);
-		            }
-		        }
+			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
 		    }
-                }
+		}
+
+		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+		{
+		    j = S_ja[jS];
+		    if(j > -1)
+		    {
+			for(kS=S_ia[j]; kS<S_ia[j+1]; kS++)
+			{
+			    k = S_ja[kS];
+			    if(k < 0) k = -k - 1;
+			    if(dof[k] == COMMON_CPT)
+			    {
+				S_ja[jS] = -S_ja[jS] - 1;
+				lambda_ST[j]--;
+				break;
+			    }
+			}
+		    }
+		}
+	    }
+
+	    for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+	    {
+		j = S_ja[jS];
+		if(j < 0) j = -j - 1;
+		if(dof[j] == COMMON_CPT) dof[j] = CPT;
 	    }
 	}
     }
-    free(local_tail);
-    free(local_head);
-    free(node);
     free(lambda_ST);
     Free_imatcsr(ST);
+    free(upt_vec);
 
-#if DEBUG_PRE > 5
-    printf("PRE : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+#if DEBUG_CLJP > 5
+    printf("CLJP PRE : ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
 #endif
-#if ASSERT_PRE
+#if ASSERT_CLJP
     assert(nCPT+nFPT+nSPT == ndof);
 #endif
     return nCPT;
 }
 
-void Get_independent_set_D(imatcsr *S, imatcsr *ST, int *lambda_ST, int *point, int npoint, intD)
+static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
 {
-    int i;
-    while(nleft != 0)
+    int *S_ia = S->ia;
+    int *S_ja = S->ja;
+    int *ST_ia = ST->ia;
+    int *ST_ja = ST->ja;
+
+    int iUPT, i, jS, j, jST;
+    for(iUPT=0; iUPT<nUPT; iUPT++)
     {
+	i = upt_vec[iUPT];
+	if(measure[i] > 1) dof[i] = DPT;
+    }
 
+    for(iUPT=0; iUPT<nUPT; iUPT++)
+    {
+	i = upt_vec[iUPT];
+	for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+	{
+	    j = S_ja[jS];
+	    if(j < 0) j = -j - 1;
 
+	    if(measure[j] > 1)
+	    {
+		if(measure[i] > measure[j])
+		    dof[j] = NOT_DPT;
+		else if(measure[i] < measure[j])
+		    dof[i] = NOT_DPT;
+	    }
+	}
+
+	for(jST=ST_ia[i]; jST<ST_ia[i+1]; jST++)
+	{
+	    j = ST_ja[jST];
+	    if(j < 0) j = -j - 1;
+
+	    if(measure[j] > 1)
+	    {
+		if(measure[i] > measure[j])
+		    dof[j] = NOT_DPT;
+		else if(measure[i] < measure[j])
+		    dof[i] = NOT_DPT;
+	    }
+	}
+    }
 }

@@ -65,10 +65,10 @@
 /** 
  * \brief type of points (dofs) for C/F splitting
  */
-#define UPT -1 /**< undecided grid point */
-#define CPT  0 /**< coarse    grid point */
-#define FPT  1 /**< fine      grid point */
-#define SPT  2 /**< solitary  grid point */
+#define CPT  1 /**< coarse    grid point */
+#define UPT  0 /**< undecided grid point */
+#define FPT -2 /**< fine      grid point */
+#define SPT -3 /**< solitary  grid point */
 
 /**
  * \brief interpolation type
