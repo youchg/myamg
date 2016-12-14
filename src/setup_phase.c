@@ -10,7 +10,7 @@
 #include "amg_param.h"
 #include "setup_phase.h"
 
-#define DETAIL_TIME  9
+#define DETAIL_TIME  0
 
 void Setup_phase(multigrid *amg, amg_param param)
 {
@@ -105,7 +105,7 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
     }
     else if(CLJP == param.coarsening_type)
     {
-	printf("coarsening type: CLJP\n");
+	//printf("coarsening type: CLJP\n");
 	ncpt = CLJP_split(A, S, dof);
 #if DETAIL_TIME > 3
 	t2 = Get_time(); time_CLJP = t2 - t1; 

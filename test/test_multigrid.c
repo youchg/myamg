@@ -15,9 +15,12 @@ int main(int argc, char* argv[])
     amg_param param;
     Init_amg_param_argv(argc, argv, &param, &A, NULL, NULL);
     //Print_amg_param(param);
-    multigrid *amg = Build_amg(A, NULL, 2);
+    multigrid *amg = Build_amg(A, NULL, 15);
+    double tb_setup = Get_time();
     Setup_phase(amg, param);
+    double te_setup = Get_time();
     Print_amg(amg);
+    printf("Setup phase time: %f\n", te_setup-tb_setup);
     Free_multigrid(amg);
     Free_dmatcsr(A);
     return 0;

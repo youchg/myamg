@@ -33,3 +33,6 @@
 
 # my backup files
 *.tar.gz
+
+# output files
+*.output

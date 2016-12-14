@@ -123,10 +123,10 @@ int main(int argc, char* argv[])
     double te_setup = Get_time();
     Print_amg(amg);
     printf("setup phase time: %f\n", te_setup-tb_setup);
-    Write_dmatcsr_csr(amg->A[0], "../output/A0.dmatcsr");
-    Write_dmatcsr_csr(amg->P[0], "../output/P0.dmatcsr");
-    Write_dmatcsr_csr(amg->R[0], "../output/R0.dmatcsr");
-    Write_dmatcsr_csr(amg->A[1], "../output/A1.dmatcsr");
+    //Write_dmatcsr_csr(amg->A[0], "../output/A0.dmatcsr");
+    //Write_dmatcsr_csr(amg->P[0], "../output/P0.dmatcsr");
+    //Write_dmatcsr_csr(amg->R[0], "../output/R0.dmatcsr");
+    //Write_dmatcsr_csr(amg->A[1], "../output/A1.dmatcsr");
 
     double tb_amg = Get_time();
     Linear_solver_amg(amg, 0, b, x_amg, param_myamg, &resi_norm_amg, &ncycle_amg);

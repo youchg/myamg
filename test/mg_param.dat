@@ -1,6 +1,8 @@
 #---------- read file ----------#
-%Afile = ../dat/fem2d_poisson_square/gmg_A_refine4.m
-Afile = ../dat/fdm2d9pt/A_fdm9pt_49x49.dat
+%Afile = ../dat/fem2d_poisson_square/gmg_A_refine5.m
+%Afile = ../dat/fdm2d9pt/A_fdm9pt_49x49.dat
+%Afile = ../../dat/fem2d_poisson_square/gmg_A_refine11.m
+Afile = ../../dat/fdm2d9pt/A_fdm_122500x122500.dat
 %Mfile = ../dat/fem_poisson_refine_5_M.dmatcsr
 %bfile = ../dat/
 
@@ -10,7 +12,7 @@ strong_diagonally_dominant_threshold = 0.1
 truncation_threshold                 = 0.2
 positive_connected                   = 0 %1:YES     0:NO
 coarsening_type                      = 2 %1:STD_RS  2:CLJP
-interpolation_type                   = 2 %1:DIR     2:STD
+interpolation_type                   = 1 %1:DIR     2:STD
 max_coarsest_dof                     = 1
 setup_phase_print_level              = 0
 

@@ -1,4 +1,4 @@
-function A = Generate_dmatcsr_FDM2D_9P(N, stencil)
+function A = Generate_sparse_dmatcsr_FDM2D_9P(N, stencil)
 %N: inner grid points for each axis
 %A = [ B CR
 %     CL B CR
@@ -19,16 +19,25 @@ CL = diag(ones(1, N))*stencil(3,2) + diag(ones(1, N-1),1)*stencil(3,1) ...
 CR = diag(ones(1, N))*stencil(1,2) + diag(ones(1, N-1),1)*stencil(1,1) ...
      + diag(ones(1, N-1), -1)*stencil(1,3);
 
+B  = sparse(B);
+CL = sparse(CL);
+CR = sparse(CR);
+
 H0 = [B CR];
 H1 = [CL B CR];
 H2 = [CL B];
 
 ZZ = zeros(N, (N-2)*N);
 
+ZZ = sparse(ZZ);
+
 A = [H0, ZZ];
 for i = 2:N-1
     ZZ1 = zeros(N, (i-2)*N);
     ZZ2 = zeros(N, (N-i-1)*N);
+
+    ZZ1 = sparse(ZZ1);
+    ZZ2 = sparse(ZZ2);
 
     A = [A; ZZ1 H1 ZZ2];
 end

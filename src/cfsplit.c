@@ -14,10 +14,10 @@
 #define  DEBUG_GEN_S     0
 #define ASSERT_GEN_S     1
 
-#define  DEBUG_PRE       9
+#define  DEBUG_PRE       0
 #define ASSERT_PRE       1
 
-#define  DEBUG_POST      9 
+#define  DEBUG_POST      0 
 #define ASSERT_POST      1
 
 #define  DEBUG_GEN_SPA_P 0
@@ -29,7 +29,7 @@
 #define  DEBUG_TRUNC     0
 #define ASSERT_TRUNC     1
 
-#define  DEBUG_CLJP      9
+#define  DEBUG_CLJP      0
 #define ASSERT_CLJP      1
 
 static int nCPT = 0;
@@ -43,7 +43,7 @@ static int Generate_strong_coupling_set_positive(dmatcsr *A, imatcsr *S, amg_par
 #define        DPT  5
 #define    NOT_DPT -5
 #define COMMON_CPT  7
-static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof);
+static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof);
 
 void Reset_dof(dmatcsr *A)
 {
@@ -1304,7 +1304,7 @@ void Truncate_P(dmatcsr *P, amg_param param)
 
 int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 {
-    printf("CLJP spliting...\n");
+    //printf("CLJP spliting...\n");
 
     int i, j, k;
     
@@ -1316,7 +1316,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     int *S_ja  = S->ja;
     int  ST_nr = ST->nr;
     int *ST_ia = ST->ia;
-    //int *ST_ja = ST->ja;
+    int   S_nn = S->nn;
     
     srand(1);
     double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
@@ -1355,8 +1355,8 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     while(1)
     {
 	iwhile++;
-	printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
-	printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
+	//printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
+	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
@@ -1364,16 +1364,32 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    if((dof[i]!=CPT) && (lambda_ST[i]<1))
 	    {
 		dof[i] = FPT;
-		nFPT++;
+		//nFPT++;
 		//make sure all dependencies have been accounted for
 		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
-		    if(S_ja[jS] > -1) {dof[i] = UPT; nFPT--;}
+		    if(S_ja[jS] > -1) 
+		    {
+			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
+			dof[i] = UPT;
+			//nFPT--;
+		    }
 		}
 	    }
-	    if((CPT==dof[i]) || (FPT==dof[i]))
+
+	    if(CPT == dof[i])
 	    {
 		lambda_ST[i] = 0.0;
+		nCPT++;
+		nUPT--;
+		upt_vec[iUPT] = upt_vec[nUPT];
+		upt_vec[nUPT] = i;
+		iUPT--;
+	    }
+	    else if(FPT == dof[i])
+	    {
+		lambda_ST[i] = 0.0;
+		nFPT++;
 		nUPT--;
 		upt_vec[iUPT] = upt_vec[nUPT];
 		upt_vec[nUPT] = i;
@@ -1381,37 +1397,48 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    }
 	}
 	
-	printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d\n", ndof, nCPT, nFPT, nSPT);
-	printf("middle -- iwhile = %d, nUPT = %d\n\n", iwhile, nUPT);
+	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
+	//printf("middle -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
+#if ASSERT_CLJP
+	//if(nCPT+nFPT+nSPT+nUPT != ndof)
+	//    printf("nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d, ndof = %d\n\n", nCPT, nFPT, nSPT, nUPT, ndof);
+	//else
+	//    printf("\n");
+	assert(nCPT+nFPT+nSPT+nUPT == ndof);
+#endif
 
 	if(nUPT == 0) break;
 
-	Get_independent_set_D(S, ST, lambda_ST, upt_vec, nUPT, dof);
+	if(!Get_independent_set_D(S, ST, lambda_ST, upt_vec, nUPT, dof))
+	{
+	    printf("ERROR: Cannot find independent set.\n");
+	    exit(-1);
+	}
 
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
-	    printf("i = %2d, dof[%2d] = %d\n", i, i, dof[i]);
+	    //printf("i = %2d, dof[%2d] = %d\n", i, i, dof[i]);
 	    if((dof[i]==DPT) || (dof[i]==CPT) || (dof[i]==COMMON_CPT))
 	    //if(dof[i] > 0)
 	    {
 		dof[i] = CPT;
-		nCPT++;
+		//nCPT++;
 		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
 		{
 		    j = S_ja[jS];
-		    printf("    j = %2d\n", j);
+		    //printf("    j = %2d\n", j);
 		    if(j > -1)
 		    {
 			S_ja[jS] = -S_ja[jS] - 1;
 			if(dof[j] != DPT)
 			{
 			    lambda_ST[j]--;
-			    printf("        i = %2d, dof[%2d] = %d, lambda_ST[%2d] = %f\n", i, j, dof[j], j, lambda_ST[j]);
+			    //printf("        i = %2d, dof[%2d] = %d, lambda_ST[%2d] = %f\n", i, j, dof[j], j, lambda_ST[j]);
 			}
 		    }
 		}
-		printf("\n");
+		//printf("\n");
 	    }
 	    else
 	    {
@@ -1425,7 +1452,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
 			dof[j] = COMMON_CPT;
 		    }
-		    else
+		    else if(SPT == dof[j])
 		    {
 			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
 		    }
@@ -1459,6 +1486,12 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    }
 	}
     }
+
+    for(jS=0; jS<S_nn; jS++)
+    {
+	if(S_ja[jS] < 0) S_ja[jS] = -S_ja[jS] - 1;
+    }
+
     free(lambda_ST);
     Free_imatcsr(ST);
     free(upt_vec);
@@ -1472,7 +1505,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     return nCPT;
 }
 
-static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
+static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
 {
     int *S_ia = S->ia;
     int *S_ja = S->ja;
@@ -1503,6 +1536,7 @@ static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int 
 	    }
 	}
 
+	/*
 	for(jST=ST_ia[i]; jST<ST_ia[i+1]; jST++)
 	{
 	    j = ST_ja[jST];
@@ -1516,5 +1550,13 @@ static void Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int 
 		    dof[i] = NOT_DPT;
 	    }
 	}
+	*/
     }
+
+    for(iUPT=0; iUPT<nUPT; iUPT++)
+    {
+	i = upt_vec[iUPT];
+	if(DPT == dof[i]) return TRUE;
+    }
+    return FALSE;
 }
