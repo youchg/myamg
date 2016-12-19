@@ -18,6 +18,17 @@ static void Pivot(double **B, int i, int j, double value);
 static void Stretch(double **B, int height, int width);
 #endif
 
+FILE *My_fopen(const char *path, const char *mode)
+{
+    FILE *file = fopen(path, mode);
+    if(!file)
+    {
+        printf("\nError: Cannot open %s!\n", path);
+	exit(-1);
+    }
+    return file;
+}
+
 dmatcsr *Read_dmatcsr(const char *filename)
 {
     FILE *file = fopen(filename, "r");
@@ -106,6 +117,62 @@ imatcsr *Read_imatcsr(const char *filename)
     A->va = va;
 
     fclose(file);
+    return A;
+}
+
+dmatcsr *Read_dmatcsr_part(const char *filename, int row_start, int row_end)
+{
+    FILE *file = fopen(filename, "r");
+    if(!file)
+    {
+        printf("\nError: Cannot open %s!\n", filename);
+	exit(-1);
+    }
+
+    int i = 0;
+    int nr_global, nc_global, nn_global;
+    while(i<1 && EOF!=fscanf(file, "%d\n",   &nr_global)) i++; i = 0;
+    while(i<1 && EOF!=fscanf(file, "%d\n",   &nc_global)) i++; i = 0;
+    while(i<1 && EOF!=fscanf(file, "%d\n\n", &nn_global)) i++; i = 0;
+
+    assert(row_start >= 0);
+    assert(row_end   < nr_global);
+
+    int nr = row_end - row_start + 1;
+    int nc = nc_global;
+
+    int itmp;
+    int *ia = (int *)malloc((nr+1)*sizeof(int));
+    while(i< row_start  && EOF!=fscanf(file, "%d\n", &itmp)) i++;
+    while(i<=row_end+1  && EOF!=fscanf(file, "%d\n", ia+i-row_start)) i++;
+    while(i<nr_global+1 && EOF!=fscanf(file, "%d\n", &itmp)) i++;
+    i = 0;
+
+    int  nn = ia[nr] - ia[0];
+    int *ja = (int *)malloc(nn*sizeof(int));
+    while(i<ia[0]     && EOF!=fscanf(file, "%d\n", &itmp)) i++;
+    while(i<ia[nr]    && EOF!=fscanf(file, "%d\n", ja+i-ia[0])) i++;
+    while(i<nn_global && EOF!=fscanf(file, "%d\n", &itmp)) i++;
+    i = 0;
+
+    double dtmp;
+    double *va = (double *)malloc(nn*sizeof(double));
+    while(i<ia[0] && EOF!=fscanf(file, "%lf\n", &dtmp)) i++;
+    while(i<ia[nr] && EOF!=fscanf(file, "%lf\n", va+i-ia[0])) i++;
+    while(i<nn_global && EOF!=fscanf(file, "%lf\n", &dtmp)) i++;
+    i = 0;
+
+    for(i=nr; i>=0; i--) ia[i] -= ia[0];
+
+    dmatcsr *A = (dmatcsr*)malloc(sizeof(dmatcsr));
+    A->nr = nr;
+    A->nc = nc;
+    A->nn = nn;
+    A->ia = ia;
+    A->ja = ja;
+    A->va = va;
+
+    fclose(file); file = NULL;
     return A;
 }
 

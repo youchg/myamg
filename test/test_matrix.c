@@ -7,6 +7,9 @@
 #include "io.h"
 #include "linear_algebra.h"
 #include "tool.h"
+#include "par_matrix_vector.h"
+
+#include "mpi.h"
 
 #define file_prefix_41 "fdm2d_9P_bnd_16384x16384"
 
@@ -19,7 +22,7 @@
 #define file_prefix    file_prefix_41
 
 
-int main()
+int main(int argc, char *argv[])
 {
 #if 0
     printf("=============== test matrix ===============\n");
@@ -110,7 +113,6 @@ int main()
     Print_dmatcsr(A_zeros);
     Write_dmatcsr_csr(A_zeros, "../output/Azeros.dmatcsr");
     Free_dmatcsr(A_zeros);
-#endif
 
     dmatcsr *A_fem = Read_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m");
     dmatcsr *M_fem = Read_dmatcsr("../dat/fem2d_poisson_lshape/gmg_M_refine4.m");
@@ -119,6 +121,17 @@ int main()
     Free_dmatcsr(A_fem);
     Free_dmatcsr(M_fem);
     Free_dmatcsr(C_fem);
+
+    dmatcsr *A_part = Read_dmatcsr_part("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", 0, 832);
+    Write_dmatcsr_csr(A_part, "../output/A_part.dat");
+    Free_dmatcsr(A_part);
+#endif
+    MPI_Init(&argc, &argv);
+
+    //par_dmatcsr *A = Read_par_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
+    Read_par_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
+
+    MPI_Finalize();
 
     return 0;
 }

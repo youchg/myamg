@@ -5,9 +5,14 @@
 #include "amg_param.h"
 #include "matrix.h"
 #include "multigrid.h"
+#include <stdio.h>
+
+FILE *My_fopen(const char *path, const char *mode);
 
 dmatcsr *Read_dmatcsr(const char *filename);
 imatcsr *Read_imatcsr(const char *filename);
+
+dmatcsr *Read_dmatcsr_part(const char *filename, int row_start, int row_end);
 
 void Print_dmatcsr(dmatcsr *A);
 void Print_imatcsr(imatcsr *A);

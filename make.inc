@@ -1,5 +1,5 @@
-CC    = gcc
-#CC    = mpicc
+#CC    = gcc
+CC    = mpicc
 CFLAG = -g -W -Wall -Wextra -Wfloat-equal -O3 
 
 CINC = $(HOME)/include

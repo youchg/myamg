@@ -1509,10 +1509,11 @@ static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *
 {
     int *S_ia = S->ia;
     int *S_ja = S->ja;
-    int *ST_ia = ST->ia;
-    int *ST_ja = ST->ja;
+    //int *ST_ia = ST->ia;
+    //int *ST_ja = ST->ja;
 
-    int iUPT, i, jS, j, jST;
+    int iUPT, i, jS, j;
+    //int jST;
     for(iUPT=0; iUPT<nUPT; iUPT++)
     {
 	i = upt_vec[iUPT];
