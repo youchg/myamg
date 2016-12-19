@@ -62,14 +62,22 @@ void Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 
     int *map_offd_col_l2g = (int*)malloc(offd->nn * sizeof(int));
     Get_par_dmatcsr_offd_and_map_col_offd_l2g(offd, map_offd_col_l2g);
+    map_offd_col_l2g = (int*)realloc(map_offd_col_l2g, offd->nc*sizeof(int));
+    assert(map_offd_col_l2g != NULL);
+    //if(myrank == 0) Print_ivec(map_offd_col_l2g, offd->nc);
+
+    Write_dmatcsr_csr(offd, "../output/offd.dat");
+    Write_dmatcsr_csr(diag, "../output/diag.dat");
+    if(myrank == 0) printf("offd->nc = %d\n", offd->nc);
 
     if(myrank == 0) printf("global info: nr = %d, nc = %d, nn = %d\n", nr_global, nc_global, nn_global);
-    printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n", myrank, nr, row_start[myrank], row_start[myrank+1]-1);
+    if(myrank == 0) printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n", myrank, nr, row_start[myrank], row_start[myrank+1]-1);
 
     par_comm_info *send_info = (par_comm_info*)malloc(sizeof(par_comm_info));
     Get_par_dmatcsr_comm_send_info(nprocs, col_start, offd, map_offd_col_l2g, send_info);
-
+    if(myrank == 0) Print_par_comm_info(send_info);
     Free_par_comm_info(send_info);
+
     Free_dmatcsr(A_local);
 
     free(map_offd_col_l2g);
@@ -108,26 +116,28 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
 
     int *map_send_start = (int*)calloc(nprocs+1, sizeof(int));
 
-    int nn = offd->nn;
+    int  nn = offd->nn;
+    int *ja = offd->ja;
     int proc_mark = 0;
     int col_global_idx;
     int count_map_send_start = 0;
 
     //找到第一个邻居进程号
-    col_global_idx = map_offd_col_l2g[0];
+    col_global_idx = map_offd_col_l2g[ja[0]];
     for(j=proc_mark; j<nprocs; j++)
     {
 	if(col_global_idx < col_start[j+1])
 	{
 	    proc_mark = j;
 	    send_proc[nsend_proc] = proc_mark;
+	    nsend_proc++;
 	    break;
 	}
     }
 
     for(i=0; i<nn; i++)
     {
-	col_global_idx = map_offd_col_l2g[i];
+	col_global_idx = map_offd_col_l2g[ja[i]];
 	if(col_global_idx>=col_start[proc_mark] && col_global_idx<col_start[proc_mark+1])
 	{
 	    count_map_send_start++;
@@ -144,9 +154,9 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
 	    }
 	    count_map_send_start++;
 
-	    nsend_proc++;
 	    send_proc[nsend_proc] = proc_mark;
 	    map_send_start[nsend_proc] = count_map_send_start;
+	    nsend_proc++;
 	}
     }
     map_send_start[nsend_proc+1] = count_map_send_start;
@@ -169,7 +179,7 @@ static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_off
 
     int *isoffd = (int*)calloc(nc, sizeof(int));
     for(k=0; k<nc; k++) isoffd[k]     = -1;
-    for(k=0; k<nn; k++) isoffd[ja[k]] = 1;
+    for(k=0; k<nn; k++) isoffd[ja[k]] =  1;
 
     int count_map = 0;
     for(k=0; k<nc; k++)
@@ -183,6 +193,13 @@ static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_off
     }
 
     for(k=0; k<nn; k++) ja[k] = isoffd[ja[k]];
+
+    int ja_max = -1;
+    for(k=0; k<nn; k++) if(ja[k] > ja_max) ja_max = ja[k];
+
+    //printf("nc = %d, ja_max = %d, count_map = %d\n", offd->nc, ja_max, count_map);
+    offd->nc = count_map;
+    assert(count_map == ja_max+1);
 
     free(isoffd);
 } 
@@ -314,6 +331,7 @@ void Free_par_comm_info(par_comm_info *info)
 	free(info);        info        = NULL;
     }
 }
+
 void Free_par_comm_data(par_comm_data *comm_data)
 {
     if(NULL != comm_data)
@@ -323,4 +341,19 @@ void Free_par_comm_data(par_comm_data *comm_data)
     }
 }
 
+void Print_par_comm_info(par_comm_info *info)
+{
+    int  nproc = info->nproc;
+    int *proc  = info->proc;
+    int *start = info->start;
+    int i;
+    printf("\n----------------------------------\n");
+    printf("par_comm_info:\n");
+    printf("nproc = %d\n", info->nproc);
+    printf("proc =\n");
+    for(i=0; i< nproc; i++) printf("       %d\n", proc[i]);
+    printf("start =\n");
+    for(i=0; i<=nproc; i++) printf("        %d\n", start[i]);
+    printf("----------------------------------\n\n");
+}
 #endif

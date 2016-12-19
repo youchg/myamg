@@ -96,4 +96,6 @@ void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max,
 void Free_par_dmatcsr(par_dmatcsr *A);
 void Free_par_comm_data(par_comm_data *comm_data);
 void Free_par_comm_info(par_comm_info *info);
+
+void Print_par_comm_info(par_comm_info *info);
 #endif

@@ -129,7 +129,8 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
 
     //par_dmatcsr *A = Read_par_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
-    Read_par_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
+    //Read_par_dmatcsr("../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
+    Read_par_dmatcsr("../dat/fdm2d9pt/A_fdm9pt_49x49.dat", MPI_COMM_WORLD);
 
     MPI_Finalize();
 
