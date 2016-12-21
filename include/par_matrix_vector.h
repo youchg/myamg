@@ -18,8 +18,8 @@ typedef struct PAR_COMMUNICATION_SEND_INFO__
     int  nproc;
     int *proc;
     //int *start;
-    int *nindex;
     int **index;
+    int *nindex;
 } par_comm_send_info;
 
 typedef struct PAR_COMMUNICATION_DATA__
@@ -72,7 +72,8 @@ typedef struct PAR_DOUBLE_VECTOR_
 
 par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm);
 void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd);
-void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y);
+//void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y);
+void Multi_par_dmatcsr_dvec(par_dmatcsr *A, double *x, double *y);
 
 void Free_par_dmatcsr(par_dmatcsr *A);
 

@@ -514,14 +514,59 @@ void Print_par_comm_send_info(par_comm_send_info *info)
 }
 
 #if 1
-void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
+void Multi_par_dmatcsr_dvec(par_dmatcsr *A, double *x, double *y)
 {
     MPI_Comm comm = A->comm;
+
+    int  myrank, nproc_global, myname_len;
+    char myname[MPI_MAX_PROCESSOR_NAME];
+
+    MPI_Comm_size(comm, &nproc_global);
+    MPI_Comm_rank(comm, &myrank);
+    MPI_Get_processor_name(myname, &myname_len);
+    myrank_id = myrank;
+
     //1. 为待发送的数据分配空间
     //2. 组装待发送的数据
     //3. 为接收的数据分配空间
     //4. 开始通讯，发送数据以及接收数据
     // y = A_diag*x_diag + A_offd*x_offd;
+    int i, j;
+
+    int nproc = A->send_info->nproc;
+    int *proc = A->send_info->proc;
+
+    int    **index_send = A->send_info->index;
+    int    *nindex_send = A->send_info->nindex;
+    double **x_send     = (double**)malloc(nproc* sizeof(double*));
+    for(i=0; i<nproc; i++)
+	x_send[i] = (double*)malloc(nindex_send[i] * sizeof(double));
+    for(i=0; i<nproc; i++)
+    {
+	for(j=0; j<nindex_send[i]; j++)
+	    x_send[i][j] = x[index_send[i][j]];
+    }
+
+    int    *start_recv = A->recv_info->start;
+    double *x_recv     = (double*)malloc(start_recv[nproc] * sizeof(double));
+
+    //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
+    //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
+    //             MPI_Comm comm,MPI_Status *status)
+    for(i=0; i<nproc; i++)
+    {
+	MPI_Sendrecv(x_send[i],            nindex_send[i],                MPI_DOUBLE, proc[i], myrank+proc[i]*1000, 
+		     x_recv+start_recv[i], start_recv[i+1]-start_recv[i], MPI_DOUBLE, proc[i], proc[i]+myrank*1000, 
+		     comm, MPI_STATUS_IGNORE);
+    }
+
+    free(x_recv); x_recv = NULL;
+    for(i=0; i<nproc; i++) 
+    {
+	free(x_send[i]);
+	x_send[i] = NULL;
+    }
+    free(x_send); x_send = NULL;
 
 }
 #endif
