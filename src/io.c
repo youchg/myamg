@@ -206,6 +206,18 @@ void Print_ivec(int *vec, int length)
     printf("============================= end ============================\n");
 }
 
+void Print_dvec(double *vec, int length)
+{
+    printf("============================= dvec ===========================\n");
+    printf(" index  value\n");
+    int i;
+    for(i=0; i<length; i++)
+    {
+	printf("%5d   %15.12f\n", i, *(vec+i));
+    }
+    printf("============================= end ============================\n");
+}
+
 void Write_dvec(double *x, int length, const char *filename)
 {
     FILE *file = fopen(filename,"w");

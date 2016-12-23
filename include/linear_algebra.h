@@ -22,6 +22,7 @@ void Multi_dmatcsr_dmatcsr_dmatcsr_quick_sorted    (dmatcsr *A, dmatcsr *B, dmat
 void Multi_dmatcsr_dmatcsr_dmatcsr_insertion_sorted(dmatcsr *A, dmatcsr *B, dmatcsr *C, dmatcsr *D);
 
 void Multi_dmatcsr_dvec(dmatcsr *A, double *x, double *y);
+void Multi_dmatcsr_dvec_hold(dmatcsr *A, double *x, double *y);
 
 double Multi_dvec_dvec   (double *x, double *y, int length);
 void   Sum_dvec_axpby    (double *x, double a, double *y, double b, double *z, int length);

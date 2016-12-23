@@ -4,6 +4,7 @@
 
 #include "io.h"
 #include "mpi.h"
+//#include "linear_algebra.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -15,8 +16,8 @@ void Free_par_dvec(par_dvec *x);
 void Free_par_comm_info(par_comm_info *pcomm_info);
 #endif
 
-static int  myrank_id;
-static int  print_rank = -1;
+static int  myrank_id  = 0;
+static int  print_rank = 4;
 static void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn);
 static void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start);
 static void Get_par_dmatcsr_comm_recv_info(int nprocs, int *col_start, dmatcsr *offd, int *map_offd_col_l2g, par_comm_recv_info *recv_info);
@@ -24,6 +25,7 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
 static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g);
 static void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max);
 static void Get_neighbor_proc(int nprocs, int *col_start, dmatcsr *offd, int *map_offd_col_l2g, int *nproc_neighbor, int *proc_neighbor);
+static void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd);
 
 
 par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
@@ -83,12 +85,11 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 	//Write_dmatcsr_csr(offd, "../output/offd.dat");
 	//Write_dmatcsr_csr(diag, "../output/diag.dat");
 	printf("\n");
-	printf("global info: nr = %d, nc = %d, nn = %d\n", nr_global, nc_global, nn_global);
-	printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n", myrank, nr, row_start[myrank], row_start[myrank+1]-1);
-	printf("offd->nc = %d\n", offd->nc);
-	printf("read matrix time: %f\n", time_end-time_start);
-	//Print_par_comm_recv_info(recv_info);
-	//Print_par_comm_send_info(send_info);
+	printf("global info: nr = %d, nc = %d, nn = %d\n\n", nr_global, nc_global, nn_global);
+	printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n\n", myrank, nr, row_start[myrank], row_start[myrank+1]-1);
+	printf("read matrix time: %f\n\n", time_end-time_start);
+	Print_par_comm_recv_info(recv_info);
+	Print_par_comm_send_info(send_info);
 	printf("\n");
     }
 
@@ -103,9 +104,9 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     A->col_start = col_start;
     A->comm = comm;
     A->send_info = send_info;
-    A->send_data = NULL;
     A->recv_info = recv_info;
-    A->recv_data = NULL;
+    //A->send_data = NULL;
+    //A->recv_data = NULL;
 
     return A;
 }
@@ -147,6 +148,11 @@ static void Get_neighbor_proc(int nprocs, int *col_start, dmatcsr *offd, int *ma
 
 // 假定 A 是对称的
 // 则 send_proc 与 recv_proc 应该相同
+//
+// 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
+// 若 offd 对应 t 进程的第 k 行（全局编号）不全为 0， 
+// 则说明 t 进程中的第 k 列（全局编号）不为0，
+// 因此需要将 x_diag 中的第 k 行（全局编号）发送到 t 进程。
 static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *offd, 
 	                                   int *map_offd_col_l2g, par_comm_send_info *send_info)
 {
@@ -156,7 +162,7 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
     int *ia = offd->ia;
     int *ja = offd->ja;
 
-    /* 找到 nrecv_proc 与 recv_proc */
+    /* 找到 nsend_proc 与 send_proc */
     int nsend_proc = 0;
     int *send_proc = (int*)malloc(nprocs * sizeof(int));
     for(i=0; i<nprocs; i++) send_proc[i] = -1;
@@ -190,7 +196,6 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
 	    {
 		if(0 == row_status[proc_mark][i])
 		{
-		    //if(myrank_id == print_rank) printf("nr = %d, proc_mark = %d, nidx = %d, nproc = %d\n",nr,  proc_mark, nidx[proc_mark], nsend_proc);
 		    row_status[proc_mark][i] = 1;
 		    idx[proc_mark][nidx[proc_mark]] = i;
 		    nidx[proc_mark]++;
@@ -208,7 +213,6 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
 		}
 		if(0 == row_status[proc_mark][i])
 		{
-		    //if(myrank_id == print_rank) printf("nr = %d, proc_mark = %d, nidx = %d, nproc = %d\n",nr,  proc_mark, nidx[proc_mark], nsend_proc);
 		    row_status[proc_mark][i] = 1;
 		    idx[proc_mark][nidx[proc_mark]] = i;
 		    nidx[proc_mark]++;
@@ -227,11 +231,16 @@ static void Get_par_dmatcsr_comm_send_info(int nprocs, int *col_start, dmatcsr *
     free(row_status); row_status = NULL;
 }
 
-
 //通过遍历 map_offd_col_l2g 获得 recv_info
 //遍历 offd->ja 是不对的
 //因为 offd->ja 中的列是按行排的, 不是按邻居进程
 //而 map_offd_col_l2g 中的元素则是把每个邻居进程的列从小到大排在一起
+//
+// 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
+// 由于矩阵的 CSR 格式中，不会有全为 0 的列，
+// 将 offd 的列号从小到大排序，第 j 列（全局编号）对应全局 x 的第 j 行，
+// 需要找出第 j 列（全局编号）对应的进程 t，
+// 然后接收进程 t 上 x_diag 的第 j 行（全局编号）。
 static void Get_par_dmatcsr_comm_recv_info(int nprocs, int *col_start, dmatcsr *offd, int *map_offd_col_l2g, par_comm_recv_info *recv_info)
 {
     int i;
@@ -348,7 +357,7 @@ static void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start)
     }
 }
 
-void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd)
+static void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd)
 {
     int     nr = A->nr;
     int     nc = A->nc;
@@ -429,9 +438,26 @@ void Free_par_dmatcsr(par_dmatcsr *A)
     free(A->col_start); A->col_start = NULL;
 
     Free_par_comm_send_info(A->send_info);
-    Free_par_comm_data(A->send_data);
     Free_par_comm_recv_info(A->recv_info);
-    Free_par_comm_data(A->recv_data);
+    //Free_par_comm_data(A->send_data);
+    //Free_par_comm_data(A->recv_data);
+
+    free(A); A = NULL;
+}
+
+void Free_par_imatcsr(par_imatcsr *A)
+{
+    Free_imatcsr(A->diag);
+    Free_imatcsr(A->offd);
+
+    free(A->map_offd_col_l2g); A->map_offd_col_l2g = NULL;
+    free(A->row_start); A->row_start = NULL;
+    free(A->col_start); A->col_start = NULL;
+
+    Free_par_comm_send_info(A->send_info);
+    Free_par_comm_recv_info(A->recv_info);
+    //Free_par_comm_data(A->send_data);
+    //Free_par_comm_data(A->recv_data);
 
     free(A); A = NULL;
 }
@@ -513,64 +539,163 @@ void Print_par_comm_send_info(par_comm_send_info *info)
     printf("----------------------------------\n\n");
 }
 
-#if 1
-void Multi_par_dmatcsr_dvec(par_dmatcsr *A, double *x, double *y)
+par_dvec *Init_par_dvec_from_par_dmatcsr(par_dmatcsr *A)
 {
-    MPI_Comm comm = A->comm;
+    par_dvec *x = (par_dvec*)malloc(sizeof(par_dvec));
+    x->length_global = A->nr_global;
+    x->length        = A->diag->nr;
+    x->value         = (double*)calloc(x->length, sizeof(double));
+    x->comm          = A->comm;
+    x->send_info     = Copy_par_comm_send_info(A->send_info);
+    x->recv_info     = Copy_par_comm_recv_info(A->recv_info);
 
-    int  myrank, nproc_global, myname_len;
-    char myname[MPI_MAX_PROCESSOR_NAME];
+    int i;
+    int nproc_send   = x->send_info->nproc;
+    x->send_data     = (double**)malloc(nproc_send * sizeof(double*));
+    for(i=0; i<nproc_send; i++)
+    {
+	x->send_data[i] = (double*)calloc(x->send_info->nindex[i], sizeof(double));
+    }
 
-    MPI_Comm_size(comm, &nproc_global);
-    MPI_Comm_rank(comm, &myrank);
-    MPI_Get_processor_name(myname, &myname_len);
-    myrank_id = myrank;
+    int nproc_recv   = x->recv_info->nproc;
+    x->recv_data     = (double*)calloc(x->recv_info->start[nproc_recv], sizeof(double));
 
-    //1. 为待发送的数据分配空间
-    //2. 组装待发送的数据
-    //3. 为接收的数据分配空间
-    //4. 开始通讯，发送数据以及接收数据
-    // y = A_diag*x_diag + A_offd*x_offd;
+    return x;
+}
+
+void Free_par_dvec(par_dvec *x)
+{
+    if(NULL != x)
+    {
+	free(x->value); x->value = NULL;
+
+	int i;
+	int nproc_send = x->send_info->nproc;
+	for(i=0; i<nproc_send; i++)
+	{
+	    free(x->send_data[i]);
+	    x->send_data[i] = NULL;
+	}
+	free(x->send_data); x->send_data = NULL;
+
+	free(x->recv_data); x->recv_data = NULL;
+
+	Free_par_comm_send_info(x->send_info);
+	Free_par_comm_recv_info(x->recv_info);
+
+	free(x); x = NULL;
+    }
+}
+
+par_comm_send_info *Copy_par_comm_send_info (par_comm_send_info *send_info)
+{
     int i, j;
 
-    int nproc = A->send_info->nproc;
-    int *proc = A->send_info->proc;
+    int  nproc  = send_info->nproc;
+    int  *proc  = send_info->proc;
+    int **index = send_info->index;
+    int *nindex = send_info->nindex;
 
-    int    **index_send = A->send_info->index;
-    int    *nindex_send = A->send_info->nindex;
-    double **x_send     = (double**)malloc(nproc* sizeof(double*));
-    for(i=0; i<nproc; i++)
-	x_send[i] = (double*)malloc(nindex_send[i] * sizeof(double));
-    for(i=0; i<nproc; i++)
-    {
-	for(j=0; j<nindex_send[i]; j++)
-	    x_send[i][j] = x[index_send[i][j]];
-    }
+    int *proc_copy = (int*)malloc(nproc * sizeof(int));
+    for(i=0; i<nproc; i++) proc_copy[i] = proc[i];
 
-    int    *start_recv = A->recv_info->start;
-    double *x_recv     = (double*)malloc(start_recv[nproc] * sizeof(double));
+    int *nindex_copy = (int*)malloc(nproc * sizeof(int));
+    for(i=0; i<nproc; i++) nindex_copy[i] = nindex[i];
 
-    //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
-    //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
-    //             MPI_Comm comm,MPI_Status *status)
+    int **index_copy = (int**)malloc(nproc * sizeof(int*));
     for(i=0; i<nproc; i++)
     {
-	MPI_Sendrecv(x_send[i],            nindex_send[i],                MPI_DOUBLE, proc[i], myrank+proc[i]*1000, 
-		     x_recv+start_recv[i], start_recv[i+1]-start_recv[i], MPI_DOUBLE, proc[i], proc[i]+myrank*1000, 
-		     comm, MPI_STATUS_IGNORE);
+	index_copy[i] = (int*)malloc(nindex[i] * sizeof(int));
+	for(j=0; j<nindex[i]; j++) index_copy[i][j] = index[i][j];
     }
 
-    free(x_recv); x_recv = NULL;
-    for(i=0; i<nproc; i++) 
+    par_comm_send_info *send_info_copy = (par_comm_send_info*)malloc(sizeof(par_comm_send_info));
+    send_info_copy->nproc  =  nproc;
+    send_info_copy->proc   =   proc_copy;
+    send_info_copy->index  =  index_copy;
+    send_info_copy->nindex = nindex_copy;
+
+    return send_info_copy;
+}
+
+par_comm_recv_info *Copy_par_comm_recv_info (par_comm_recv_info *recv_info)
+{
+    int  nproc  = recv_info->nproc;
+    int  *proc  = recv_info->proc;
+    int  *start = recv_info->start;
+
+    int i;
+
+    int *proc_copy = (int*)malloc(nproc * sizeof(int));
+    for(i=0; i<nproc; i++) proc_copy[i] = proc[i];
+
+    int *start_copy = (int*)malloc((nproc+1) * sizeof(int));
+    for(i=0; i<=nproc; i++) start_copy[i] = start[i];
+
+    par_comm_recv_info *recv_info_copy = (par_comm_recv_info*)malloc(sizeof(par_comm_recv_info));
+    recv_info_copy->nproc  = nproc;
+    recv_info_copy->proc   =  proc_copy;
+    recv_info_copy->start  = start_copy;
+
+    return recv_info_copy;
+}
+
+#if 0
+void Free_par_comm_send_data(par_comm_send_data *send_data)
+{
+    if(NULL != send_data)
     {
-	free(x_send[i]);
-	x_send[i] = NULL;
-    }
-    free(x_send); x_send = NULL;
+	int i;
+	for(i=0; i<info->nproc; i++) {free(send_data->data[i]); send_data->data[i] = NULL;}
+	free(send_data->data);  send_data->data = NULL;
 
+	//free(send_data->ndata); ndata = NULL;
+
+	if(NULL != send_data->info) 
+	    Free_par_comm_send_info(send_data->info);
+
+	free(send_data); send_data = NULL;
+    }
+}
+
+void Free_par_comm_recv_data(par_comm_recv_data *recv_data)
+{
+    if(NULL != recv_data)
+    {
+	free(recv_data->data);  recv_data->data = NULL;
+
+	if(NULL != recv_data->info) 
+	    Free_par_comm_recv_info(recv_data->info);
+
+	free(recv_data); recv_data = NULL;
+    }
+}
+
+par_comm_send_data *Create_par_comm_send_data(par_comm_send_info *info)
+{
+    int i, j;
+    int **data = (int**)malloc(info->nproc * sizeof(int*));
+    for(i=0; i<info->nproc; i++)
+    {
+	data[i] = (int*)calloc(info->nindex[i], sizeof(int));
+    }
+
+    par_comm_send_data *send_data = (par_comm_send_data*)malloc(sizeof(par_comm_send_data));
+    send_data->info = Copy_par_comm_send_info(info);
+    send_data->data = data;
+
+    return send_data;
+}
+
+par_comm_recv_data *Create_par_comm_recv_data(par_comm_recv_info *info)
+{
+    par_comm_recv_data *recv_data = (par_comm_recv_data*)malloc(sizeof(par_comm_recv_data));
+    recv_data->info = Copy_par_comm_recv_info(info);
+    recv_data->data = malloc;
+
+    return recv_data;
 }
 #endif
-
 
 
 #endif

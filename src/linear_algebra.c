@@ -593,6 +593,23 @@ void Multi_dmatcsr_dvec(dmatcsr *A, double *x, double *y)
             y[i] += va[row_begin+j] * x[ja[row_begin+j]];
     }
 }
+void Multi_dmatcsr_dvec_hold(dmatcsr *A, double *x, double *y)
+{
+    int nr = A->nr;
+    int *ia = A->ia;
+    int *ja = A->ja;
+    double *va = A->va;
+    int i, j, row_begin, row_end, row_length;
+    
+    for(i=0; i<nr; i++)
+    {
+        row_begin  = ia[i];
+        row_end    = ia[i+1];
+        row_length = row_end - row_begin;
+        for(j=0; j<row_length; j++)
+            y[i] += va[row_begin+j] * x[ja[row_begin+j]];
+    }
+}
 
 double Multi_dvec_dvec(double *x, double *y, int length)
 {

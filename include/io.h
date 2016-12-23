@@ -18,6 +18,7 @@ void Print_dmatcsr(dmatcsr *A);
 void Print_imatcsr(imatcsr *A);
 
 void Print_ivec(int *vec, int length);
+void Print_dvec(double *vec, int length);
 
 void Write_dvec(double *x, int length, const char *filename);
 void Read_dvec (double *x, int length, const char *filename);
