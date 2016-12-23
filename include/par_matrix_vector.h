@@ -21,25 +21,17 @@ typedef struct PAR_COMMUNICATION_SEND_INFO_
     int *nindex;
 } par_comm_send_info;
 
-typedef struct PAR_COMMUNICATION_DATA_
+typedef struct PAR_COMMUNICATION_INFO_
 {
-    MPI_Datatype  type;
-    void         *data;
-} par_comm_data;
+    int nproc; //邻居进程个数
+    int *proc; //邻居进程编号
 
-/*
-typedef struct PAR_COMMUNICATION_RECV_DATA__
-{
-    par_comm_recv_info *info;
-    void *data;
-} par_comm_recv_data;
+    int *nindex_row; //每个邻居进程包含非零行的个数
+    int **index_row; //每个邻居进程包含非零行的编号
 
-typedef struct PAR_COMMUNICATION_SEND_DATA__
-{
-    par_comm_send_info *info;
-    void **data;
-} par_comm_send_data;
-*/
+    int *nindex_col; //每个邻居进程包含非零列的个数
+    int **index_col; //每个邻居进程包含非零列的编号
+} par_comm_info;
 
 /* Assume that A is symmetric */
 typedef struct DOUBLE_PAR_MATRIX_CSR_
@@ -66,6 +58,8 @@ typedef struct DOUBLE_PAR_MATRIX_CSR_
     par_comm_send_info *send_info;
     par_comm_recv_info *recv_info;
 
+    par_comm_info *comm_info;
+
     //par_comm_data *send_data;
     //par_comm_data *recv_data;
 } par_dmatcsr;
@@ -88,6 +82,7 @@ typedef struct INT_PAR_MATRIX_CSR_
     MPI_Comm comm;
     par_comm_send_info *send_info;
     par_comm_recv_info *recv_info;
+    par_comm_info *comm_info;
 
     //par_comm_data *send_data;
     //par_comm_data *recv_data;
@@ -113,7 +108,6 @@ void Free_par_imatcsr(par_imatcsr *A);
 par_dvec *Init_par_dvec_from_par_dmatcsr(par_dmatcsr *A);
 void Free_par_dvec(par_dvec *x);
 
-void Free_par_comm_data      (par_comm_data      *comm_data);
 void Free_par_comm_send_info (par_comm_send_info *info);
 void Free_par_comm_recv_info (par_comm_recv_info *info);
 
@@ -125,6 +119,28 @@ par_comm_recv_info *Copy_par_comm_recv_info (par_comm_recv_info *recv_info);
 
 //void Free_par_comm_send_data(par_comm_send_data *send_data);
 //void Free_par_comm_recv_data(par_comm_recv_data *recv_data);
+
+/*
+typedef struct PAR_COMMUNICATION_DATA_
+{
+    MPI_Datatype  type;
+    void         *data;
+} par_comm_data;
+
+void Free_par_comm_data      (par_comm_data      *comm_data);
+
+typedef struct PAR_COMMUNICATION_RECV_DATA__
+{
+    par_comm_recv_info *info;
+    void *data;
+} par_comm_recv_data;
+
+typedef struct PAR_COMMUNICATION_SEND_DATA__
+{
+    par_comm_send_info *info;
+    void **data;
+} par_comm_send_data;
+*/
 
 #if 0 //WITH_MPI
 double Get_par_dvec_2norm(par_dvec *x);
