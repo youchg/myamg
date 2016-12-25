@@ -70,6 +70,10 @@
 #define FPT -2 /**< fine      grid point */
 #define SPT -3 /**< solitary  grid point */
 
+#define        DPT  5
+#define    NOT_DPT -5
+#define COMMON_CPT  7
+
 /**
  * \brief coarsening type
  */

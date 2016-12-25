@@ -40,9 +40,6 @@ static int ndof = 0;
 static int Generate_strong_coupling_set_negtive (dmatcsr *A, imatcsr *S, amg_param param);
 static int Generate_strong_coupling_set_positive(dmatcsr *A, imatcsr *S, amg_param param);
 
-#define        DPT  5
-#define    NOT_DPT -5
-#define COMMON_CPT  7
 static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof);
 
 void Reset_dof(dmatcsr *A)

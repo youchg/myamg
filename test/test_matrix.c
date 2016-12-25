@@ -23,6 +23,8 @@
 #define file_prefix    file_prefix_41
 
 
+int print_rank = 1;
+
 int main(int argc, char *argv[])
 {
 #if 0
@@ -136,22 +138,49 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     //MPI_Get_processor_name(myname, &myname_len);
 
-    //par_dmatcsr *A = Read_par_dmatcsr("../../dat/fem2d_poisson_lshape/gmg_A_refine4.m", MPI_COMM_WORLD);
-    //par_dmatcsr *A = Read_par_dmatcsr("../../dat/fem2d_poisson_lshape/gmg_A_refine6.m", MPI_COMM_WORLD);
-    par_dmatcsr *A = Read_par_dmatcsr("../../dat/fem2d_poisson_lshape/gmg_A_refine3.m", MPI_COMM_WORLD);
-    //par_dmatcsr *A = Read_par_dmatcsr("../dat/fdm2d9pt/A_fdm9pt_49x49.dat", MPI_COMM_WORLD);
+    //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine6.m";
+    char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
+    par_dmatcsr *A = Read_par_dmatcsr(file, MPI_COMM_WORLD);
 
     par_dvec *x = Init_par_dvec_from_par_dmatcsr(A);
     int i;
-    for(i=0; i<A->diag->nc; i++) x->value[i] = (double)(A->row_start[myrank] + i)*3.0/7.0;
+    for(i=0; i<A->diag->nc; i++) x->value[i] = (double)(A->row_start[myrank] + i + 1)/A->nc_global/A->nc_global;
     par_dvec *y = Init_par_dvec_from_par_dmatcsr(A);
 
+    double tb1 = MPI_Wtime();
     Multi_par_dmatcsr_dvec(A, x, y);
+    double te1 = MPI_Wtime();
+
     double y_norm = Get_par_dvec_2norm(y);
-    if(0 == myrank) printf("A*x 2-norm = %15.12f\n", y_norm);
+
+    if(myrank == print_rank)
+    {
+	dmatcsr *A2 = Read_dmatcsr(file);
+
+	double  *x2 = (double*)malloc(A2->nc * sizeof(double));
+	for(i=0; i<A2->nc; i++) x2[i] = (double)(i+1)/A2->nc/A2->nc;
+
+	double  *y2 = (double*)malloc(A2->nc * sizeof(double));
+
+	double tb2 = MPI_Wtime();
+	double tb3 = Get_time();
+	Multi_dmatcsr_dvec(A2, x2, y2);
+	double te3 = Get_time();
+	double te2 = MPI_Wtime();
+
+	double y2_norm = Get_dvec_2norm(y2, A2->nc);
+
+	printf("Seq A*x 2-norm = %15.12f\n", y2_norm);
+	printf("Par A*x 2-norm = %15.12f\n", y_norm);
+	printf("\n");
+	printf("Seq A*x Get_time  = %f\n", te3-tb3);
+	printf("Seq A*x MPI_Wtime = %f\n", te2-tb2);
+	printf("Par A*x MPI_Wtime = %f\n", te1-tb1);
+    }
 
     Free_par_dvec(y);
     Free_par_dvec(x);
+
     Free_par_dmatcsr(A);
     MPI_Finalize();
 

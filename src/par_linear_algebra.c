@@ -6,8 +6,9 @@
 #include "linear_algebra.h"
 #include "mpi.h"
 #include <math.h>
+#include <stdio.h>
 
-//必要的时候，检查 A, x, y 的 send_info, recv_info 是否一致
+//必要的时候，检查 A, x, y 的 comm_info, comm_info 是否一致
 // y = A_diag*x_diag + A_offd*x_recv;
 void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 {
@@ -18,28 +19,28 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 
     int i, j;
 
-    int nproc = A->send_info->nproc;
-    int *proc = A->send_info->proc;
+    int nproc_neighbor = A->comm_info->nproc_neighbor;
+    int *proc_neighbor = A->comm_info->proc_neighbor;
 
-    int    **index_send = x->send_info->index;
-    int    *nindex_send = x->send_info->nindex;
+    int    **index_send = x->comm_info->index_row;
+    int    *nindex_send = x->comm_info->nindex_row;
     double **x_send     = x->send_data;
-    for(i=0; i<nproc; i++)
+    for(i=0; i<nproc_neighbor; i++)
     {
 	for(j=0; j<nindex_send[i]; j++)
 	    x_send[i][j] = x->value[index_send[i][j]];
     }
 
-    int    *start_recv = x->recv_info->start;
+    int    *start_recv = x->recv_data_start;
     double *x_recv     = x->recv_data;
 
     //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
     //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
     //             MPI_Comm comm,MPI_Status *status)
-    for(i=0; i<nproc; i++)
+    for(i=0; i<nproc_neighbor; i++)
     {
-	MPI_Sendrecv(x_send[i],            nindex_send[i],                MPI_DOUBLE, proc[i], myrank+proc[i]*1000, 
-		     x_recv+start_recv[i], start_recv[i+1]-start_recv[i], MPI_DOUBLE, proc[i], proc[i]+myrank*1000, 
+	MPI_Sendrecv(x_send[i],            nindex_send[i],                MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+		     x_recv+start_recv[i], start_recv[i+1]-start_recv[i], MPI_DOUBLE, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 		     comm, MPI_STATUS_IGNORE);
     }
     
