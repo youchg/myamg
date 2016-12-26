@@ -25,6 +25,18 @@ static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr
 
 //static int Get_par_independent_set_D(par_imatcsr *S, double *measure, int *upt_vec, int nUPT, int *dof);
 
+/* 从全局来说，
+ * 假定 A 的稀疏结构对称。生成的邻接矩阵 S 不对称，稀疏结构也不对称。
+ * 这是由于强连接不是对称的，就会导致 j 强影响 i (S_ij = 1) 但 i 不强影响 j (S_ji = 0)，
+ * 因此也就导致了 S 的稀疏结构不对称。
+ *
+ * 从编程的角度，本来 S 的稀疏结构与 A 是完全一致的，即将上面所说的 S_ji=0 看做值为 0 的非零元。
+ * 这样造成至少不方便：
+ * 用 S 中的元素判断时候强连接时，需要考虑 S 中元素的值，即需要判断值是否为 0，才能确定是否强连接。
+ * 如果将这些 0 去掉 (对 S 进行压缩)，
+ * 就无需考虑 S 元素的值，S->ja 向量中存储的列号 (假定位于第 i 行) 都是强影响 i 的点的编号。
+ * 注：Hypre 中 par_strength.c 说也有考虑不压缩 S 的做法, "There are several pros and cons to discuss."
+ */
 static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr *S, amg_param param)
 {
     const double sddt = param.strong_diagonally_dominant_threshold;
@@ -184,13 +196,71 @@ int Generate_par_strong_coupling_set(par_dmatcsr *A, par_imatcsr *S, amg_param p
 	return FAIL;
 }
 
+int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S)
+{
+    MPI_Comm comm = A->comm;
+
+    int  myrank, nproc_global;
+    MPI_Comm_size(comm, &nproc_global);
+    MPI_Comm_rank(comm, &myrank);
+    myrank_id = myrank;
+
+    int i, j, k;
+    
+    imatcsr *S_diag = S->diag;
+    imatcsr *S_offd = S->offd;
+
+    // 某点 i (全局编号) 的影响力，即 ST 第 i 行的行和，亦即 S 第 i 列的列和
+    // 因此不考虑将 S 做全局转置的情况下，需要将 S 的所有列求和。
+    // 反应到每个进程上，需要将 S 的所有列求和，
+    // 然后将 offd 中列和的信息发送，也接收需要的列和信息
+    int *S_diag_ja = S_diag->ja;
+    int *S_offd_ja = S_offd->ja;
+    int  S_diag_nc = S_diag->nc;
+    int  S_offd_nc = S_offd->nc;
+    int  S_diag_nn = S_diag->nn;
+    int  S_offd_nn = S_offd->nn;
+    
+    //排列方式：先存放 S_diag 的列和，再存放 S_offd 的列和
+    double *measure = (double*)calloc(S_diag_nc+S_offd_nc, sizeof(double));
+    for(j=0; j<S_diag_nn; j++) measure[          S_diag_ja[j]] += 1.0;
+    for(j=0; j<S_offd_nn; j++) measure[S_diag_nc+S_offd_ja[j]] += 1.0;
+
+    // 发送：将 S_offd 中的列和发送出去。
+    //       需要 A 的进程邻接信息———
+    //           全局来看，A 至少要求稀疏结构是对称的，
+    //           但一般来说 S 不但不对称，稀疏结构也不对称。
+    //       具体地说，设本进程与某进程 t 相邻，需要将 A->offd 在进程 t 上的列和全部发出去
+    int nproc_neighbor = A->comm_info->nproc_neighbor;
+    int *nindex_col    = A->comm_info->nindex_col;
+    double **measure_send_buf = (double**)malloc(nproc_neighbor * sizeof(double*));
+    for(i=0; i<nproc_neighbor; i++) measure_send_buf[i] = (double*)calloc(nindex_col[i], sizeof(double));
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	for(j=0; j<nindex_send[i]; j++)
+	    lambda_ST_buf_send[i][j] = 
+    }
+
+
+    
+    //通讯完毕之后，再加rand
+    srand(1);
+    int *A_row_start = A->row_start; 
+    int tmp;
+    for(i=0; i<A_row_start[myrank]; i++) tmp = rand();
+
+    free(measure);
+
+    return SUCCESS;
+}
+
 
 #if PAR_CFSPLIT
 static int nCPT = 0;
 static int nFPT = 0;
 static int nSPT = 0;
 
-int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
+int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 {
     MPI_Comm comm = A->comm;
 
@@ -212,11 +282,16 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
     int ST_diag_nr = ST_diag->nr;
     int ST_offd_nr = ST_offd->nr;
 
+    //是不是可以考虑 lambda_ST 指向的内存类型改为原本的 int
+    //这样通信的长度从 double 变为 int 减少了一半
+    //后面再将其指向的内存类型转换为 double 的
+    //因为 double 类型只是为了 CLJP 算法中加上一个随机的小数
     double *lambda_ST = (double*)malloc((ST_diag_nr+ST_offd_nr)*sizeof(double));
     for(i=0; i<ST_diag_nr; i++) lambda_ST[i]            = ST_diag_ia[i+1] - ST_diag_ia[i];
     for(i=0; i<ST_offd_nr; i++) lambda_ST[i+ST_diag_nr] = ST_offd_ia[i+1] - ST_offd_ia[i];
 
     
+    //通讯完毕之后，再加rand
     srand(1);
     int *A_row_start = A->row_start; 
     int tmp;

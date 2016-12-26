@@ -8,7 +8,8 @@
 
 int Generate_par_strong_coupling_set(par_dmatcsr *A, par_imatcsr *S, amg_param param);
 
-int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
+int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S);
+//int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
 
 int Generate_par_sparsity_P_dir(par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
 int Generate_par_P_dir(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
