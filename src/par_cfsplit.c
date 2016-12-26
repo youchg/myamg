@@ -36,6 +36,13 @@ static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr
  * 如果将这些 0 去掉 (对 S 进行压缩)，
  * 就无需考虑 S 元素的值，S->ja 向量中存储的列号 (假定位于第 i 行) 都是强影响 i 的点的编号。
  * 注：Hypre 中 par_strength.c 说也有考虑不压缩 S 的做法, "There are several pros and cons to discuss."
+ *
+ * 
+ *  S->diag->nr = A->diag->nr;
+ *  S->diag->nc = A->diag->nc;
+ *
+ *  S->offd->nr = A->offd->nr;
+ *  S->offd->nc = A->offd->nc;
  */
 static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr *S, amg_param param)
 {
@@ -222,6 +229,8 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S)
     int  S_offd_nn = S_offd->nn;
     
     //排列方式：先存放 S_diag 的列和，再存放 S_offd 的列和
+    //S->diag->nc = A->diag->nc;
+    //S->offd->nc = A->offd->nc;
     double *measure = (double*)calloc(S_diag_nc+S_offd_nc, sizeof(double));
     for(j=0; j<S_diag_nn; j++) measure[          S_diag_ja[j]] += 1.0;
     for(j=0; j<S_offd_nn; j++) measure[S_diag_nc+S_offd_ja[j]] += 1.0;
@@ -232,13 +241,40 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S)
     //           但一般来说 S 不但不对称，稀疏结构也不对称。
     //       具体地说，设本进程与某进程 t 相邻，需要将 A->offd 在进程 t 上的列和全部发出去
     int nproc_neighbor = A->comm_info->nproc_neighbor;
-    int *nindex_col    = A->comm_info->nindex_col;
-    double **measure_send_buf = (double**)malloc(nproc_neighbor * sizeof(double*));
-    for(i=0; i<nproc_neighbor; i++) measure_send_buf[i] = (double*)calloc(nindex_col[i], sizeof(double));
+    int *nindex_send   = A->comm_info->nindex_col;
+    int **index_send   = A->comm_info->index_col;
+    double **measure_send = (double**)malloc(nproc_neighbor * sizeof(double*));
+    for(i=0; i<nproc_neighbor; i++) measure_send[i] = (double*)calloc(nindex_col[i], sizeof(double));
     for(i=0; i<nproc_neighbor; i++)
     {
 	for(j=0; j<nindex_send[i]; j++)
-	    lambda_ST_buf_send[i][j] = 
+	    measure_send[i][j] = measure[index_send[i][j]];
+    }
+
+    int *nindex_recv   = A->comm_info->nindex_row;
+    int **index_recv   = A->comm_info->index_row;
+    double **measure_recv = (double**)malloc(nproc_neighbor * sizeof(double*));
+    for(i=0; i<nproc_neighbor; i++) measure_recv[i] = (double*)calloc(nindex_row[i], sizeof(double));
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	for(j=0; j<nindex_recv[i]; j++)
+	    measure_recv[i][j] = measure[index_recv[i][j]];
+    }
+
+    //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
+    //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
+    //             MPI_Comm comm,MPI_Status *status)
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	MPI_Sendrecv(measure_send[i], nindex_send[i], MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+		     measure_recv[i], nindex_recv[i], MPI_DOUBLE, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+		     comm, MPI_STATUS_IGNORE);
+    }
+
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	for(j=0; j<nindex_recv[i]; j++)
+	    measure[index_recv[i][j]]
     }
 
 
@@ -249,6 +285,13 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S)
     int tmp;
     for(i=0; i<A_row_start[myrank]; i++) tmp = rand();
 
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	free(measure_send[i]);
+	measure_send[i] = NULL;
+    }
+    free(measure_send);
+    measure_send = NULL;
     free(measure);
 
     return SUCCESS;
