@@ -216,9 +216,11 @@ static void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max
     for(k=0; k<nn; k++) ja[k] -= col_idx_min;
 }
 
-//map_offd_col_l2g 应全部初始化为 -1
-//此时 offd->nc 等于 nc_global
-//最后将 offd->nc 从 nc_global 改为正确的列数
+/*
+* map_offd_col_l2g 应全部初始化为 -1
+* 此时 offd->nc 等于 nc_global
+* 最后将 offd->nc 从 nc_global 改为正确的列数
+*/
 static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g)
 {
     int  nn = offd->nn;
@@ -303,7 +305,10 @@ static void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_
     comm_info->index_col      = idx_col;
 }
 
-//proc_neighbor 应全部初始化为 -1
+
+/*
+* proc_neighbor 应全部初始化为 -1
+*/
 static void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, 
 	                      int *nproc_neighbor, int *proc_neighbor)
 {
@@ -336,13 +341,15 @@ static void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, i
     *nproc_neighbor = np_neighbor;
 }
 
-// 假定 A 是对称的
-// 则 send_proc 与 recv_proc 应该相同
-//
-// 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
-// 若 offd 对应 t 进程的第 k 行（全局编号）不全为 0， 
-// 则说明 t 进程中的第 k 列（全局编号）不为0，
-// 因此需要将 x_diag 中的第 k 行（全局编号）发送到 t 进程。
+/*
+* 假定 A 是对称的
+* 则 send_proc 与 recv_proc 应该相同
+*
+* 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
+* 若 offd 对应 t 进程的第 k 行（全局编号）不全为 0， 
+* 则说明 t 进程中的第 k 列（全局编号）不为0，
+* 因此需要将 x_diag 中的第 k 行（全局编号）发送到 t 进程。
+*/
 static void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, 
 	                                  int nproc_neighbor, int  *proc_neighbor, 
 	                                  int *col_start,     int  *map_offd_col_l2g, 
@@ -394,16 +401,18 @@ static void Get_par_dmatcsr_comm_row_info(dmatcsr *offd,
     free(row_status); row_status = NULL;
 }
 
-//通过遍历 map_offd_col_l2g 获得 recv_info
-//遍历 offd->ja 是不对的
-//因为 offd->ja 中的列是按行排的, 不是按邻居进程
-//而 map_offd_col_l2g 中的元素则是把每个邻居进程的列从小到大排在一起
-//
-// 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
-// 由于矩阵的 CSR 格式中，不会有全为 0 的列，
-// 将 offd 的列号从小到大排序，第 j 列（全局编号）对应全局 x 的第 j 行，
-// 需要找出第 j 列（全局编号）对应的进程 t，
-// 然后接收进程 t 上 x_diag 的第 j 行（全局编号）。
+/*
+* 通过遍历 map_offd_col_l2g 获得 recv_info
+* 遍历 offd->ja 是不对的
+* 因为 offd->ja 中的列是按行排的, 不是按邻居进程
+* 而 map_offd_col_l2g 中的元素则是把每个邻居进程的列从小到大排在一起
+
+* 矩阵乘向量 A*x 时，y = A_diag*x_diag + A_offd*x_recv;
+* 由于矩阵的 CSR 格式中，不会有全为 0 的列，
+* 将 offd 的列号从小到大排序，第 j 列（全局编号）对应全局 x 的第 j 行，
+* 需要找出第 j 列（全局编号）对应的进程 t，
+* 然后接收进程 t 上 x_diag 的第 j 行（全局编号）。
+*/
 static void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, 
 	                                  int nproc_neighbor, int *proc_neighbor,
 					  int *col_start,     int *map_offd_col_l2g, 
@@ -434,15 +443,23 @@ void Free_par_dmatcsr(par_dmatcsr *A)
     Free_dmatcsr(A->diag);
     Free_dmatcsr(A->offd);
 
-    free(A->map_offd_col_l2g); A->map_offd_col_l2g = NULL;
-    free(A->row_start); A->row_start = NULL;
-    free(A->col_start); A->col_start = NULL;
+    if(NULL != A->map_offd_col_l2g)
+    {
+	free(A->map_offd_col_l2g);
+	A->map_offd_col_l2g = NULL;
+    }
+    if(NULL != A->row_start)
+    {
+	free(A->row_start);
+	A->row_start = NULL;
+    }
+    if(NULL != A->col_start)
+    {
+	free(A->col_start);
+	A->col_start = NULL;
+    }
 
     Free_par_comm_info(A->comm_info);
-    //Free_par_comm_send_info(A->send_info);
-    //Free_par_comm_recv_info(A->recv_info);
-    //Free_par_comm_data(A->send_data);
-    //Free_par_comm_data(A->recv_data);
 
     free(A); A = NULL;
 }
@@ -452,15 +469,23 @@ void Free_par_imatcsr(par_imatcsr *A)
     Free_imatcsr(A->diag);
     Free_imatcsr(A->offd);
 
-    free(A->map_offd_col_l2g); A->map_offd_col_l2g = NULL;
-    free(A->row_start); A->row_start = NULL;
-    free(A->col_start); A->col_start = NULL;
+    if(NULL != A->map_offd_col_l2g)
+    {
+	free(A->map_offd_col_l2g);
+	A->map_offd_col_l2g = NULL;
+    }
+    if(NULL != A->row_start)
+    {
+	free(A->row_start);
+	A->row_start = NULL;
+    }
+    if(NULL != A->col_start)
+    {
+	free(A->col_start);
+	A->col_start = NULL;
+    }
 
     Free_par_comm_info(A->comm_info);
-    //Free_par_comm_send_info(A->send_info);
-    //Free_par_comm_recv_info(A->recv_info);
-    //Free_par_comm_data(A->send_data);
-    //Free_par_comm_data(A->recv_data);
 
     free(A); A = NULL;
 }

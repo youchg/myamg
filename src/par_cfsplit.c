@@ -18,13 +18,14 @@
 #define ASSERT_PAR_CLJP      1
 
 //static int ndof = 0;
+extern int myrank_id;
 
-static par_imatcsr *Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, amg_param param);
+static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr *S, amg_param param);
 //static int Generate_par_strong_coupling_set_positive(par_dmatcsr *A, par_imatcsr *S, amg_param param);
 
 //static int Get_par_independent_set_D(par_imatcsr *S, double *measure, int *upt_vec, int nUPT, int *dof);
 
-static par_imatcsr *Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, amg_param param)
+static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr *S, amg_param param)
 {
     const double sddt = param.strong_diagonally_dominant_threshold;
 
@@ -122,46 +123,65 @@ static par_imatcsr *Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, am
     }
 
     S_diag_ia[A_diag_nr] = index_diag;
-    S_diag_nn = index_diag;
     S_diag_ja = (int*)realloc(S_diag_ja, index_diag*sizeof(int));
-    S_diag_va = (int*)calloc(index_diag, sizeof(int));
+    int  S_diag_nn = index_diag;
+    int *S_diag_va = (int*)calloc(index_diag, sizeof(int));
     for(i=0; i<index_diag; i++) S_diag_va[i] = 1; //为了矩阵打印函数形式的统一
 
     S_offd_ia[A_offd_nr] = index_offd;
-    S_offd_nn = index_offd;
     S_offd_ja = (int*)realloc(S_offd_ja, index_offd*sizeof(int));
-    S_offd_va = (int*)calloc(index_offd, sizeof(int));
+    int  S_offd_nn = index_offd;
+    int *S_offd_va = (int*)calloc(index_offd, sizeof(int));
     for(i=0; i<index_offd; i++) S_offd_va[i] = 1; //为了矩阵打印函数形式的统一
 
     imatcsr *S_diag = (imatcsr*)malloc(sizeof(imatcsr));
-    S_diag->nr = S_diag_nr;
-    S_diag->nc = S_diag_nc;
+    S_diag->nr = A_diag_nr;
+    S_diag->nc = A_diag_nc;
     S_diag->nn = S_diag_nn;
     S_diag->ia = S_diag_ia;
     S_diag->ja = S_diag_ja;
     S_diag->va = S_diag_va;
 
     imatcsr *S_offd = (imatcsr*)malloc(sizeof(imatcsr));
-    S_offd->nr = S_offd_nr;
-    S_offd->nc = S_offd_nc;
+    S_offd->nr = A_offd_nr;
+    S_offd->nc = A_offd_nc;
     S_offd->nn = S_offd_nn;
     S_offd->ia = S_offd_ia;
     S_offd->ja = S_offd_ja;
     S_offd->va = S_offd_va;
 
-    par_dmatcsr *S = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
-    S->diag = S_diag;
-    S->offd = S_offd;
-    S->nr_global = -1;
-    S->nc_global = -1;
-    S->nn_global = -1;
-    S->map_offd_col_l2g = A->map_offd_col_l2g;
-    S->row_start = row_start;
-    S->col_start = col_start;
-    S->comm = comm;
-    S->comm_info = comm_info;
+    S->diag             = S_diag;
+    S->offd             = S_offd;
+    S->nr_global        = -1;
+    S->nc_global        = -1;
+    S->nn_global        = -1;
+    S->map_offd_col_l2g = NULL;
+    S->row_start        = NULL;
+    S->col_start        = NULL;
+    S->comm             = A->comm;
+    S->comm_info        = NULL;
 
     return SUCCESS;
+}
+
+/* 1. 与fasp区别在于判断是否强连接时，fasp没有考虑A元素为正的情况，
+      而且对于元素大小正好等于tol的时候，fasp默认是不算入强连接 
+   2. 加入强对角占优的判断，
+      if(row_abs_sum >= (1+max_row_sum)*MABS(aii)) 则不是强对角占优的；
+	  若强对角占优，则本行没有强连接关系。
+      如果不想判断，就把max_row_sum设为-1.
+      fasp的判断条件是
+      if(row_sum >= (2 - max_row_sum) * MABS(diag.val[i]) )
+      即 (my)max_row_sum 相当于 (fasp)1-max_row_sum
+*/
+int Generate_par_strong_coupling_set(par_dmatcsr *A, par_imatcsr *S, amg_param param)
+{
+    if(param.positive_connected == NO)
+	return Generate_par_strong_coupling_set_negtive (A, S, param);
+    //else if(param.positive_connected == YES)
+	//return Generate_par_strong_coupling_set_positive(A, S, param);
+    else
+	return FAIL;
 }
 
 
@@ -170,32 +190,47 @@ static int nCPT = 0;
 static int nFPT = 0;
 static int nSPT = 0;
 
-//int Generate_par_strong_coupling_set(par_dmatcsr *A, par_imatcsr *S, amg_param param);
-//
-//int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
-//
-//int Generate_par_sparsity_P_dir(par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
-//int Generate_par_P_dir(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
-//
-//void Truncate_par_P(par_dmatcsr *P, amg_param param);
-
-int Par_CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
+int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof);
 {
+    MPI_Comm comm = A->comm;
+
+    int  myrank, nproc_global;
+    MPI_Comm_size(comm, &nproc_global);
+    MPI_Comm_rank(comm, &myrank);
+    myrank_id = myrank;
+
     int i, j, k;
     
-    imatcsr *ST = (imatcsr*)malloc(sizeof(imatcsr));
-    Transpose_imatcsr_struct(S, ST);
+    imatcsr *S_diag = S->diag;
+    imatcsr *S_offd = S->offd;
+
+    imatcsr *ST_diag = (imatcsr*)malloc(sizeof(imatcsr));
+    imatcsr *ST_offd = (imatcsr*)malloc(sizeof(imatcsr));
+    Transpose_imatcsr_struct(S_diag, ST_diag);
+    Transpose_imatcsr_struct(S_offd, ST_offd);
     
+    int ST_diag_nr = ST_diag->nr;
+    int ST_offd_nr = ST_offd->nr;
+
+    double *lambda_ST = (double*)malloc((ST_diag_nr+ST_offd_nr)*sizeof(double));
+    for(i=0; i<ST_diag_nr; i++) lambda_ST[i]            = ST_diag_ia[i+1] - ST_diag_ia[i];
+    for(i=0; i<ST_offd_nr; i++) lambda_ST[i+ST_diag_nr] = ST_offd_ia[i+1] - ST_offd_ia[i];
+
+    
+    srand(1);
+    int *A_row_start = A->row_start; 
+    int tmp;
+    for(i=0; i<A_row_start[myrank]; i++) tmp = rand();
+
+    double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
+    for(i=0; i<ST_nr; i++) lambda_ST[i] = ST_ia[i+1]-ST_ia[i] + (double)rand()/RAND_MAX;
+
     int  A_nc  = A->nc;
     int *S_ia  = S->ia;
     int *S_ja  = S->ja;
-    int  ST_nr = ST->nr;
     int *ST_ia = ST->ia;
     int   S_nn = S->nn;
     
-    srand(1);
-    double *lambda_ST = (double*)malloc(ST_nr*sizeof(double));
-    for(i=0; i<ST_nr; i++) lambda_ST[i] = ST_ia[i+1]-ST_ia[i] + (double)rand()/RAND_MAX;
 
     int nUPT = 0;
     int *upt_vec = (int*)calloc(ndof, sizeof(int));
@@ -368,7 +403,8 @@ int Par_CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     }
 
     free(lambda_ST);
-    Free_imatcsr(ST);
+    Free_imatcsr(ST_diag);
+    Free_imatcsr(ST_offd);
     free(upt_vec);
 
 #if DEBUG_CLJP > 5
@@ -379,6 +415,14 @@ int Par_CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 #endif
     return nCPT;
 }
+
+//
+//
+//int Generate_par_sparsity_P_dir(par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
+//int Generate_par_P_dir(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, par_dmatcsr *P);
+//
+//void Truncate_par_P(par_dmatcsr *P, amg_param param);
+
 
 static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
 {
@@ -445,25 +489,6 @@ void Reset_dof(dmatcsr *A)
     ndof = A->nc;
 }
 
-/* 1. 与fasp区别在于判断是否强连接时，fasp没有考虑A元素为正的情况，
-      而且对于元素大小正好等于tol的时候，fasp默认是不算入强连接 
-   2. 加入强对角占优的判断，
-      if(row_abs_sum >= (1+max_row_sum)*MABS(aii)) 则不是强对角占优的；
-	  若强对角占优，则本行没有强连接关系。
-      如果不想判断，就把max_row_sum设为-1.
-      fasp的判断条件是
-      if(row_sum >= (2 - max_row_sum) * MABS(diag.val[i]) )
-      即 (my)max_row_sum 相当于 (fasp)1-max_row_sum
-*/
-int Generate_strong_coupling_set(dmatcsr *A, imatcsr *S, amg_param param)
-{
-    if(param.positive_connected == NO)
-	return Generate_strong_coupling_set_negtive (A, S, param);
-    else if(param.positive_connected == YES)
-	return Generate_strong_coupling_set_positive(A, S, param);
-    else
-	return FAIL;
-}
 
 static int Generate_strong_coupling_set_positive(dmatcsr *A, imatcsr *S, amg_param param)
 {
