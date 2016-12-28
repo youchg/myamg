@@ -86,6 +86,7 @@ void Free_par_comm_info(par_comm_info *info);
 
 //for multiply Ax
 par_dvec *Init_par_dvec_mv(par_dmatcsr *A);
+par_ivec *Init_par_ivec_length_comm(int length, MPI_Comm comm);
 void Free_par_dvec(par_dvec *x);
 void Free_par_ivec(par_ivec *x);
 

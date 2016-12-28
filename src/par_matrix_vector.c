@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static int  myrank_id  = 0;
 extern int  print_rank;
 
 static void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn);
@@ -27,7 +26,6 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     int  myrank, nproc_global;
     MPI_Comm_size(comm, &nproc_global);
     MPI_Comm_rank(comm, &myrank);
-    myrank_id = myrank;
 
     double time_start, time_end;
     time_start = MPI_Wtime();
@@ -92,7 +90,8 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 	printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n\n", 
 		myrank, row_start[myrank+1]-row_start[myrank], row_start[myrank], row_start[myrank+1]-1);
 	printf("read matrix time: %f\n\n", time_end-time_start);
-	Print_dmatcsr(offd);
+	//Print_dmatcsr(diag);
+	//Print_dmatcsr(offd);
 	Print_par_comm_info(comm_info);
 	printf("\n");
     }
@@ -229,6 +228,7 @@ static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_off
 
     int k;
 
+    //好的做法应该是将 offd->ja 排序
     int *isoffd = (int*)calloc(nc, sizeof(int));
     for(k=0; k<nc; k++) isoffd[k]     = -1;
     for(k=0; k<nn; k++) isoffd[ja[k]] =  1;
@@ -590,6 +590,21 @@ par_dvec *Init_par_dvec_mv(par_dmatcsr *A)
     return x;
 }
 
+par_ivec *Init_par_ivec_length_comm(int length, MPI_Comm comm)
+{
+    par_ivec *x = (par_ivec*)malloc(sizeof(par_ivec));
+    x->length_global   = -1;
+    x->length          = length;
+    x->value           = (int*)calloc(x->length, sizeof(int));
+    x->comm            = comm;
+    x->comm_info       = NULL;
+    x->send_data       = NULL;
+    x->recv_data       = NULL;
+    x->recv_data_start = NULL;
+
+    return x;
+}
+
 void Free_par_dvec(par_dvec *x)
 {
     if(NULL != x)
@@ -597,15 +612,24 @@ void Free_par_dvec(par_dvec *x)
 	free(x->value); x->value = NULL;
 
 	int i;
-	int nproc_neighbor = x->comm_info->nproc_neighbor;
-	for(i=0; i<nproc_neighbor; i++)
+	if(NULL != x->send_data)
 	{
-	    free(x->send_data[i]);
-	    x->send_data[i] = NULL;
-	}
-	free(x->send_data); x->send_data = NULL;
+	    assert(NULL != x->comm_info);
+	    int nproc_neighbor = x->comm_info->nproc_neighbor;
 
-	free(x->recv_data); x->recv_data = NULL;
+	    for(i=0; i<nproc_neighbor; i++)
+	    {
+		free(x->send_data[i]);
+		x->send_data[i] = NULL;
+	    }
+	    free(x->send_data); x->send_data = NULL;
+	}
+
+	if(NULL != x->recv_data)
+	{
+	    free(x->recv_data);
+	    x->recv_data = NULL;
+	}
 
 	Free_par_comm_info(x->comm_info);
 
@@ -622,15 +646,24 @@ void Free_par_ivec(par_ivec *x)
 	free(x->value); x->value = NULL;
 
 	int i;
-	int nproc_neighbor = x->comm_info->nproc_neighbor;
-	for(i=0; i<nproc_neighbor; i++)
+	if(NULL != x->send_data)
 	{
-	    free(x->send_data[i]);
-	    x->send_data[i] = NULL;
-	}
-	free(x->send_data); x->send_data = NULL;
+	    assert(NULL != x->comm_info);
+	    int nproc_neighbor = x->comm_info->nproc_neighbor;
 
-	free(x->recv_data); x->recv_data = NULL;
+	    for(i=0; i<nproc_neighbor; i++)
+	    {
+		free(x->send_data[i]);
+		x->send_data[i] = NULL;
+	    }
+	    free(x->send_data); x->send_data = NULL;
+	}
+
+	if(NULL != x->recv_data)
+	{
+	    free(x->recv_data);
+	    x->recv_data = NULL;
+	}
 
 	Free_par_comm_info(x->comm_info);
 

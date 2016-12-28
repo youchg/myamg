@@ -11,6 +11,7 @@ TARGETS = $(SOURCE:%.c=%)
 #################################################
 test_list:test_list.exe
 test_matrix:test_matrix.exe
+test_cfsplit:test_cfsplit.exe
 test_multigrid:test_multigrid.exe
 test_cg:test_cg.exe
 test_gs:test_gs.exe

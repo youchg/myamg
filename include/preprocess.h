@@ -74,6 +74,8 @@
 #define    NOT_DPT -5
 #define COMMON_CPT  7
 
+#define EXCEPTION_PT -99
+
 /**
  * \brief coarsening type
  */

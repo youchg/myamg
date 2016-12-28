@@ -15,5 +15,6 @@ int Is_ascend_sorted_ivec(int *vec, int length);
 
 int A_cap_B_sorted_ascend(int *A, int lengthA, int *B, int lengthB);
 int A_cap_B(int *A, int lengthA, int *B, int lengthB);
+int Get_ivec_cap_ivec(int *A, int lengthA, int *B, int lengthB, int *ncap, int **cap, int **indexA, int **indexB);
 
 #endif

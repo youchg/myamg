@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/time.h>
+
 #include "tool.h"
 #include "preprocess.h"
 
@@ -154,6 +156,53 @@ int A_cap_B_sorted_ascend(int *A, int lengthA, int *B, int lengthB)
     }
 
     return FALSE;
+}
+
+/* assume elements of both A and B are in ascend order */
+int Get_ivec_cap_ivec(int *A, int lengthA, int *B, int lengthB, int *ncap, int **cap, int **indexA, int **indexB)
+{
+    int i, j;
+
+    int *idxA = (int*)malloc(lengthA * sizeof(int));
+    int *idxB = (int*)malloc(lengthB * sizeof(int));
+    for(i=0; i<lengthA; i++) idxA[i] = -1;
+    for(i=0; i<lengthB; i++) idxB[i] = -1;
+
+    int max_num_cap = (lengthA>lengthB) ? lengthB : lengthA;
+    int *cap_vec = (int*)calloc(max_num_cap, sizeof(int));
+
+    int num_cap = 0;
+    int flag = 0;
+    for(i=0; i<lengthA; i++)
+    {
+        for(j=flag; j<lengthB; j++)
+        {
+            if(B[j] == A[i])
+	    {
+		idxA   [num_cap] = i;
+		idxB   [num_cap] = j;
+		cap_vec[num_cap] = A[i];
+		num_cap++;
+	    }
+            else if(B[j] < A[i])
+                flag++;
+            else
+                break;
+        }
+    }
+
+    *ncap = num_cap;
+
+    if(NULL != cap) *cap = cap_vec;
+    else            {free(cap_vec); cap_vec = NULL;}
+
+    if(NULL != indexA) *indexA = idxA;
+    else            {free(idxA); idxA = NULL;}
+
+    if(NULL != indexB) *indexB = idxB;
+    else            {free(idxB); idxB = NULL;}
+
+    return TRUE;
 }
 
 int A_cap_B(int *A, int lengthA, int *B, int lengthB)
