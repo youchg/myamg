@@ -1298,7 +1298,6 @@ void Truncate_P(dmatcsr *P, amg_param param)
     P->va = (double*)realloc(P->va, new_nn*sizeof(double));
 }
 
-
 int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 {
     //printf("CLJP spliting...\n");
@@ -1428,7 +1427,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		    if(j > -1)
 		    {
 			S_ja[jS] = -S_ja[jS] - 1;
-			if(dof[j] != DPT)
+			if((DPT!=dof[j]) && (CPT!=dof[j]) && (COMMON_CPT!=dof[j]))
 			{
 			    lambda_ST[j]--;
 			    //printf("        i = %2d, dof[%2d] = %d, lambda_ST[%2d] = %f\n", i, j, dof[j], j, lambda_ST[j]);

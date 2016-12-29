@@ -382,10 +382,11 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     assert(nCPT+nFPT+nSPT+nUPT == ndof);
 #endif
 
+    //?????????????????????????????????????
     //???? 有没有可能 S_ext 中的元素全为 0?
+    //?????????????????????????????????????
     imatcsr *S_ext = Get_S_ext(A, S);
 
-#if 1
     /*
      * A->offd 的所有列中，每个邻居进程的开始位置
      * 待改进：只需要考虑 S->offd 的所有列中，每个邻居进程的开始位置
@@ -401,47 +402,56 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     int ncfmarker_diag_send = 0;
     int ncfmarker_offd_recv = 0;
 
-    //int iUPT, jS, kS;
+    int iUPT, jS, kS;
     int iwhile = 0;
     while(1)
     {
 	if(iwhile >= 1) break;
 	iwhile++;
 
-	//进行通信，获得 A->offd 上的所有的 dof 类型
-	for(i=0; i<A->offd->nc; i++) cfmarker_offd[i] = EXCEPTION_PT;
+	//通信：对 measure 进行更新
 	for(i=0; i<nproc_neighbor; i++)
 	{
-
-	    ncfmarker_diag_send = comm_info->nindex_row[i];
-	    for(j=0; j<ncfmarker_diag_send; j++) cfmarker_diag_send[j] = cfmarker[comm_info->index_row[i][j]];
-
-	    ncfmarker_offd_recv = comm_info->nindex_col[i];
-	    MPI_Sendrecv(cfmarker_diag_send,                  ncfmarker_diag_send, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
-			 cfmarker_offd+col_start_neighbor[i], ncfmarker_offd_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+	    for(j=0; j<nindex_send[i]; j++)
+		measure_send[i][j] = measure[S_diag_nc+index_send[i][j]];
+	}
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    MPI_Sendrecv(measure_send[i], nindex_send[i], MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+			 measure_recv[i], nindex_recv[i], MPI_DOUBLE, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 			 comm, MPI_STATUS_IGNORE);
 	}
-	if(myrank == print_rank)
+	for(i=0; i<nproc_neighbor; i++)
 	{
-	    printf("shit cfmarker_offd: ");
-	    for(i=0; i<A->offd->nc; i++) printf("%02d ", cfmarker_offd[i]);
-	    printf("\n");
+	    for(j=0; j<nindex_recv[i]; j++)
+		measure[index_recv[i][j]] += measure_recv[i][j];
 	}
-
+	for(i=S_diag_nc; i<S_offd_nc; i++) measure[i] = 0.0;
+	
+	//对本进程上dof的类型进行更新
 	//printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
 	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
-	    //printf("dof[%d] = %d\n", i, dof[i]);
-	    if((dof[i]!=CPT) && (lambda_ST[i]<1))
+	    //printf("cfmarker[%d] = %d\n", i, cfmarker[i]);
+	    if((cfmarker[i]!=CPT) && (measure[i]<1))
 	    {
-		dof[i] = FPT;
+		cfmarker[i] = FPT;
 		//nFPT++;
 		//make sure all dependencies have been accounted for
-		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+		for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
 		{
-		    if(S_ja[jS] > -1) 
+		    if(S_diag_ja[jS] > -1) 
+		    {
+			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
+			cfmarker[i] = UPT;
+			//nFPT--;
+		    }
+		}
+		for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+		{
+		    if(S_offd_ja[jS] > -1) 
 		    {
 			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
 			dof[i] = UPT;
@@ -452,7 +462,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 
 	    if(CPT == dof[i])
 	    {
-		lambda_ST[i] = 0.0;
+		measure[i] = 0.0;
 		nCPT++;
 		nUPT--;
 		upt_vec[iUPT] = upt_vec[nUPT];
@@ -461,7 +471,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	    }
 	    else if(FPT == dof[i])
 	    {
-		lambda_ST[i] = 0.0;
+		measure[i] = 0.0;
 		nFPT++;
 		nUPT--;
 		upt_vec[iUPT] = upt_vec[nUPT];
@@ -469,8 +479,30 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		iUPT--;
 	    }
 	}
+
+	//通信，对 cfmarker_offd 进行更新
+	for(i=0; i<A->offd->nc; i++) cfmarker_offd[i] = EXCEPTION_PT;
+	for(i=0; i<nproc_neighbor; i++)
+	{
+
+	    ncfmarker_diag_send = comm_info->nindex_row[i];
+	    for(j=0; j<ncfmarker_diag_send; j++) cfmarker_diag_send[j] = cfmarker[comm_info->index_row[i][j]];
+
+	    ncfmarker_offd_recv = comm_info->nindex_col[i];
+	    MPI_Sendrecv(cfmarker_diag_send,
+		                ncfmarker_diag_send, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+			 cfmarker_offd+col_start_neighbor[i], 
+			        ncfmarker_offd_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+			 comm, MPI_STATUS_IGNORE);
+	}
+	if(myrank == print_rank)
+	{
+	    printf("shit cfmarker_offd: ");
+	    for(i=0; i<A->offd->nc; i++) printf("%02d ", cfmarker_offd[i]);
+	    printf("\n");
+	}
+
     }
-#endif
 
 #if 0
     int iUPT, jS, kS;
