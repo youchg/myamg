@@ -34,9 +34,9 @@ int main(int argc, char *argv[])
     //MPI_Get_processor_name(myname, &myname_len);
 
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine5.m";
-    char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine3.m";
+    //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine3.m";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_6400x6400.dat";
-    //char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
+    char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
     par_dmatcsr *A = Read_par_dmatcsr(file, MPI_COMM_WORLD);
 
     par_imatcsr *S = (par_imatcsr*)malloc(sizeof(par_imatcsr));

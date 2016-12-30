@@ -142,10 +142,10 @@ int main(int argc, char *argv[])
     char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
     par_dmatcsr *A = Read_par_dmatcsr(file, MPI_COMM_WORLD);
 
-    par_dvec *x = Init_par_dvec_from_par_dmatcsr(A);
+    par_dvec *x = Init_par_dvec_mv(A);
     int i;
     for(i=0; i<A->diag->nc; i++) x->value[i] = (double)(A->row_start[myrank] + i + 1)/A->nc_global/A->nc_global;
-    par_dvec *y = Init_par_dvec_from_par_dmatcsr(A);
+    par_dvec *y = Init_par_dvec_mv(A);
 
     double tb1 = MPI_Wtime();
     Multi_par_dmatcsr_dvec(A, x, y);
