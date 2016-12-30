@@ -176,6 +176,10 @@ int main(int argc, char *argv[])
 	printf("Seq A*x Get_time  = %f\n", te3-tb3);
 	printf("Seq A*x MPI_Wtime = %f\n", te2-tb2);
 	printf("Par A*x MPI_Wtime = %f\n", te1-tb1);
+
+	free(x2);
+	free(y2);
+	Free_dmatcsr(A2);
     }
 
     Free_par_dvec(y);
