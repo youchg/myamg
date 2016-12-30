@@ -29,7 +29,7 @@
 #define  DEBUG_TRUNC     0
 #define ASSERT_TRUNC     1
 
-#define  DEBUG_CLJP      0
+#define  DEBUG_CLJP      8
 #define ASSERT_CLJP      1
 
 static int nCPT = 0;
@@ -40,7 +40,7 @@ static int ndof = 0;
 static int Generate_strong_coupling_set_negtive (dmatcsr *A, imatcsr *S, amg_param param);
 static int Generate_strong_coupling_set_positive(dmatcsr *A, imatcsr *S, amg_param param);
 
-static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof);
+static int Get_independent_set_D(imatcsr *S, double *measure, int *upt_vec, int nUPT, int *dof);
 
 void Reset_dof(dmatcsr *A)
 {
@@ -1392,8 +1392,15 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		iUPT--;
 	    }
 	}
+#if 0
+	int left = 37;
+	int right = 49;
+	printf("iwhile = %d, measure: ", iwhile);
+	for(i=left; i<right; i++) printf("%f ", lambda_ST[i]);
+	printf("\n");
+#endif
 	
-	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
+	//printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
 	//printf("middle -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
 #if ASSERT_CLJP
 	//if(nCPT+nFPT+nSPT+nUPT != ndof)
@@ -1405,11 +1412,28 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 
 	if(nUPT == 0) break;
 
-	if(!Get_independent_set_D(S, ST, lambda_ST, upt_vec, nUPT, dof))
+	if(!Get_independent_set_D(S, lambda_ST, upt_vec, nUPT, dof))
 	{
 	    printf("ERROR: Cannot find independent set.\n");
 	    exit(-1);
 	}
+
+#if DEBUG_CLJP > 5
+	int nDPT = 0;
+	int *dpt_vec = (int*)malloc(A->nr * sizeof(int));
+	for(i=0; i<A->nr; i++)
+	{
+	    if(dof[i] == DPT)
+	    {
+		dpt_vec[nDPT] = i;
+		nDPT++;
+	    }
+	}
+	printf("iwhile = %d, nDPT = %d, DPT = ", iwhile, nDPT);
+	for(i=0; i<nDPT; i++) printf("%d, ", dpt_vec[i]);
+	printf("\n");
+	free(dpt_vec);
+#endif
 
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
@@ -1501,15 +1525,12 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
     return nCPT;
 }
 
-static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
+static int Get_independent_set_D(imatcsr *S, double *measure, int *upt_vec, int nUPT, int *dof)
 {
     int *S_ia = S->ia;
     int *S_ja = S->ja;
-    //int *ST_ia = ST->ia;
-    //int *ST_ja = ST->ja;
 
     int iUPT, i, jS, j;
-    //int jST;
     for(iUPT=0; iUPT<nUPT; iUPT++)
     {
 	i = upt_vec[iUPT];
@@ -1526,28 +1547,24 @@ static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *
 
 	    if(measure[j] > 1)
 	    {
+		/* 
+		 * 保证对于某UPT点i是否属于DPT,
+		 * 除了考虑i的measure要比所有影响i的点的measure大，
+		 * 也考虑了i的measure要比所有i依赖的点的measure大.
+		 * 后者是通过遍历其他UPT点的时候保证的，具体地说，
+		 * 遍历UPT来到i点的时候，
+		 * 如果某点j强影响i, 但是其measure比i小，则该点不可能为DPT.
+		 * 仔细体会就可明白。
+		 *
+		 * 原先的做法是除了对 S_ia 进行for循环，还对 ST_ia 进行for循环。
+		 * 这样做应该也对，但是不够简单，尤其是对于并行的时候，会非常难做。
+		 */
 		if(measure[i] > measure[j])
 		    dof[j] = NOT_DPT;
 		else if(measure[i] < measure[j])
 		    dof[i] = NOT_DPT;
 	    }
 	}
-
-	/*
-	for(jST=ST_ia[i]; jST<ST_ia[i+1]; jST++)
-	{
-	    j = ST_ja[jST];
-	    if(j < 0) j = -j - 1;
-
-	    if(measure[j] > 1)
-	    {
-		if(measure[i] > measure[j])
-		    dof[j] = NOT_DPT;
-		else if(measure[i] < measure[j])
-		    dof[i] = NOT_DPT;
-	    }
-	}
-	*/
     }
 
     for(iUPT=0; iUPT<nUPT; iUPT++)

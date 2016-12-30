@@ -71,7 +71,7 @@
 #define SPT -3 /**< solitary  grid point */
 
 #define        DPT  5
-#define    NOT_DPT -5
+#define    NOT_DPT  UPT
 #define COMMON_CPT  7
 
 #define EXCEPTION_PT -99

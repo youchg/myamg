@@ -30,7 +30,10 @@ static int nSPT = 0;
 static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr *S, amg_param param);
 //static int Generate_par_strong_coupling_set_positive(par_dmatcsr *A, par_imatcsr *S, amg_param param);
 
-//static int Get_par_independent_set_D(par_imatcsr *S, double *measure, int *upt_vec, int nUPT, int *dof);
+static int Get_par_independent_set_D(par_imatcsr *S,            double *measure, 
+	                             int         *upt_vec,      int     nUPT, 
+				     int         *upt_vec_offd, int     nUPT_offd, 
+				     int         *cfmarker,     int    *cfmarker_offd);
 
 /* 从全局来说，
  * 假定 A 的稀疏结构对称。生成的邻接矩阵 S 不对称，稀疏结构也不对称。
@@ -219,7 +222,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     MPI_Comm_size(comm, &nproc_global);
     MPI_Comm_rank(comm, &myrank);
 
-    int i, j;
+    int i, j, k;
     
     imatcsr *S_diag = S->diag;
     imatcsr *S_offd = S->offd;
@@ -249,6 +252,10 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     for(j=0; j<S_diag_nn; j++) measure[          S_diag_ja[j]] += 1.0;
     for(j=0; j<S_offd_nn; j++) measure[S_diag_nc+S_offd_ja[j]] += 1.0;
 
+    int *nindex_send;
+    int *nindex_recv;
+    int **index_send;
+    int **index_recv;
     /*
      * 发送：将 S_offd 中的列和发送出去。
      *       需要 A 的进程邻接信息———
@@ -261,20 +268,23 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
      *       注意这里列号的判定是基于 A_offd 的行号.
      */
     int nproc_neighbor = comm_info->nproc_neighbor;
-    int *nindex_send   = comm_info->nindex_col;
-    int **index_send   = comm_info->index_col;
     double **measure_send = (double**)malloc(nproc_neighbor * sizeof(double*));
-    for(i=0; i<nproc_neighbor; i++) measure_send[i] = (double*)calloc(nindex_send[i], sizeof(double));
+    for(i=0; i<nproc_neighbor; i++) 
+	measure_send[i] = (double*)calloc(MMAX(comm_info->nindex_row[i], comm_info->nindex_col[i]), sizeof(double));
+    double **measure_recv = (double**)malloc(nproc_neighbor * sizeof(double*));
+    for(i=0; i<nproc_neighbor; i++) 
+	measure_recv[i] = (double*)calloc(MMAX(comm_info->nindex_row[i], comm_info->nindex_col[i]), sizeof(double));
+
+    nindex_send        = comm_info->nindex_col;
+     index_send        = comm_info->index_col;
     for(i=0; i<nproc_neighbor; i++)
     {
 	for(j=0; j<nindex_send[i]; j++)
 	    measure_send[i][j] = measure[S_diag_nc+index_send[i][j]];
     }
 
-    int *nindex_recv   = comm_info->nindex_row;
-    int **index_recv   = comm_info->index_row;
-    double **measure_recv = (double**)malloc(nproc_neighbor * sizeof(double*));
-    for(i=0; i<nproc_neighbor; i++) measure_recv[i] = (double*)calloc(nindex_recv[i], sizeof(double));
+    nindex_recv = comm_info->nindex_row;
+     index_recv = comm_info->index_row;
 
     //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
     //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
@@ -290,7 +300,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 #if 0
     if(myrank == print_rank)
     {
-	printf("send: \n");
+	printf("measure send: \n");
 	for(i=0; i<nproc_neighbor; i++)
 	{
 	    for(j=0; j<nindex_send[i]; j++)
@@ -299,7 +309,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	}
 	printf("\n");
 
-	printf("recv: \n");
+	printf("measure recv: \n");
 	for(i=0; i<nproc_neighbor; i++)
 	{
 	    for(j=0; j<nindex_recv[i]; j++)
@@ -316,13 +326,21 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	    measure[index_recv[i][j]] += measure_recv[i][j];
     }
 
-    for(i=S_diag_nc; i<S_offd_nc; i++) measure[i] = 0.0;
+    for(i=S_diag_nc; i<S_diag_nc+S_offd_nc; i++) measure[i] = 0.0;
 
     //通讯完毕之后，再加rand
     srand(1);
     int *A_row_start = A->row_start; 
     for(i=0; i<A_row_start[myrank]; i++) rand(); //保证 measure 的值不随进程数的改变而改变
     for(i=0; i<S_diag_nc; i++) measure[i] += (double)rand()/RAND_MAX;
+#if 0
+	if(myrank == print_rank)
+	{
+	    printf("init measure on rank %d       : ", myrank);
+	    for(i=0; i<A->diag->nr; i++) printf("%f ", measure[i]);
+	    printf("\n\n");
+	}
+#endif
 
     //if(myrank == print_rank) Print_dvec(measure, S_diag_nc);
 
@@ -353,25 +371,49 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	}
 	else // 如果上面两个if语句都不满足，说明i影响一些点，也有一些点影响i，UPT
 	{
-	    measure[i] = UPT;
+	    cfmarker[i] = UPT;
 	    upt_vec[nUPT++] = i;
 	}
     }
 
-#if DEBUG_PAR_CLJP > 5
+    int *upt_vec_offd = (int*)malloc(S_offd_nc * sizeof(int));
+    int nupt_offd = 0;
+#if 0 // 将upt的确定放到下面 while 循环中
+    for(i=0; i<S_offd_nc; i++) upt_vec_offd[i] = -1;
+    for(k=0; k<S_offd_nn; k++)
+    {
+	j = S_offd_ja[k];
+	if(upt_vec_offd[j] == -1)
+	{
+	    nupt_offd++;
+	    upt_vec_offd[j] = j;
+	}
+    }
+    int index_upt_vec_offd = 0;
+    for(i=0; i<S_offd_nn; i++)
+    {
+	if(upt_vec_offd[i] > -1)
+	    upt_vec_offd[index_upt_vec_offd++] = upt_vec_offd[i];
+    }
+    assert(index_upt_vec_offd == nupt_offd);
+#endif
+
+
+    int nUPT_global = 0;
     int ndof_global = 0;
     int nCPT_global = 0;
     int nFPT_global = 0;
     int nSPT_global = 0;
-    int nUPT_global = 0;
 
+#if DEBUG_PAR_CLJP > 5
     MPI_Allreduce(&ndof, &ndof_global, 1, MPI_INT, MPI_SUM, comm);
     MPI_Allreduce(&nCPT, &nCPT_global, 1, MPI_INT, MPI_SUM, comm);
     MPI_Allreduce(&nFPT, &nFPT_global, 1, MPI_INT, MPI_SUM, comm);
     MPI_Allreduce(&nSPT, &nSPT_global, 1, MPI_INT, MPI_SUM, comm);
     MPI_Allreduce(&nUPT, &nUPT_global, 1, MPI_INT, MPI_SUM, comm);
 
-    if(myrank == print_rank)
+    if(myrank == -1)
+    //if(myrank == print_rank)
     {
 	printf("CLJP INI GLOBAL: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", 
 		ndof_global, nCPT_global, nFPT_global, nSPT_global, nUPT_global);
@@ -385,7 +427,26 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     //?????????????????????????????????????
     //???? 有没有可能 S_ext 中的元素全为 0?
     //?????????????????????????????????????
+    //答：的确有可能。但会不会出现错误，还在实验中。
     imatcsr *S_ext = Get_S_ext(A, S);
+    int *S_ext_ia = S_ext->ia;
+    int *S_ext_ja = S_ext->ja;
+
+    /* 
+     * 设 S_diag, S_offd 中有效的列数为 nc_diag, nc_offd, 再设 nc:=nc_diag+nc_offd
+     * S_ext 是一个 nc_offd行 nc列 的矩阵，这时因为生成 S_ext 时，希望通讯的数据量最小.
+     * 但这里会造成，S_ext 的行 和 S_offd 中的列不是完全对应的(与 S_offd 中的有效列完全对应),
+     * 需要一个映射来完成从 S_offd的列号 到 S_ext的行号的转换.
+     */
+    int *map_S_offd_col_to_S_ext_row = (int*)malloc(S_offd_nc * sizeof(int));
+    for(i=0; i<S_offd_nc; i++) map_S_offd_col_to_S_ext_row[i] = -1;
+    int nc_offd = 0; // actual S->offd->nc
+    int *S_offd_col = (int*)malloc(S_offd_nc * sizeof(int));
+    for(i=0; i<S_offd_nc; i++) S_offd_col[i] = -1;
+    Get_nonnegtive_ivec_all_value_ascend(S_offd_ja, S_offd_nn, S_offd_nc, &nc_offd, S_offd_col);
+    for(i=0; i<nc_offd; i++)
+	map_S_offd_col_to_S_ext_row[S_offd_col[i]] = i;
+    free(S_offd_col); S_offd_col = NULL;
 
     /*
      * A->offd 的所有列中，每个邻居进程的开始位置
@@ -399,17 +460,25 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 
     int *cfmarker_offd      = (int*)malloc(A->offd->nc * sizeof(int));
     int *cfmarker_diag_send = (int*)malloc(A->diag->nc * sizeof(int));
+    int *cfmarker_diag_recv = (int*)malloc(A->diag->nc * sizeof(int));
+    int *cfmarker_offd_recv = (int*)malloc(A->offd->nc * sizeof(int));
     int ncfmarker_diag_send = 0;
+    int ncfmarker_diag_recv = 0;
+    int ncfmarker_offd_send = 0;
     int ncfmarker_offd_recv = 0;
 
     int iUPT, jS, kS;
     int iwhile = 0;
     while(1)
     {
-	if(iwhile >= 1) break;
+	if(iwhile >= 20) break;
 	iwhile++;
 
-	//通信：对 measure 进行更新
+	//通信：对 measure 在diag的部分进行更新
+	nindex_send = comm_info->nindex_col;
+	nindex_recv = comm_info->nindex_row;
+	 index_send = comm_info->index_col;
+	 index_recv = comm_info->index_row;
 	for(i=0; i<nproc_neighbor; i++)
 	{
 	    for(j=0; j<nindex_send[i]; j++)
@@ -426,16 +495,21 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	    for(j=0; j<nindex_recv[i]; j++)
 		measure[index_recv[i][j]] += measure_recv[i][j];
 	}
-	for(i=S_diag_nc; i<S_offd_nc; i++) measure[i] = 0.0;
+#if 0
+	if(myrank == print_rank)
+	{
+	    printf("     measure on rank %d       : ", myrank);
+	    for(i=0; i<A->diag->nr; i++) printf("%f ", measure[i]);
+	    printf("\n");
+	}
+#endif
 	
 	//对本进程上dof的类型进行更新
-	//printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
-	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
 	    //printf("cfmarker[%d] = %d\n", i, cfmarker[i]);
-	    if((cfmarker[i]!=CPT) && (measure[i]<1))
+	    if((cfmarker[i]!=CPT) && (measure[i]<1.0))
 	    {
 		cfmarker[i] = FPT;
 		//nFPT++;
@@ -445,6 +519,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		    if(S_diag_ja[jS] > -1) 
 		    {
 			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
+			//上面一行应该无所谓
 			cfmarker[i] = UPT;
 			//nFPT--;
 		    }
@@ -454,13 +529,13 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		    if(S_offd_ja[jS] > -1) 
 		    {
 			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
-			dof[i] = UPT;
+			cfmarker[i] = UPT;
 			//nFPT--;
 		    }
 		}
 	    }
 
-	    if(CPT == dof[i])
+	    if(CPT == cfmarker[i])
 	    {
 		measure[i] = 0.0;
 		nCPT++;
@@ -469,7 +544,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		upt_vec[nUPT] = i;
 		iUPT--;
 	    }
-	    else if(FPT == dof[i])
+	    else if(FPT == cfmarker[i])
 	    {
 		measure[i] = 0.0;
 		nFPT++;
@@ -478,13 +553,88 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		upt_vec[nUPT] = i;
 		iUPT--;
 	    }
+	    //else if(NOT_DPT == cfmarker[i])
+	    //{
+		//cfmarker[i] = UPT;
+		//printf("\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n");
+	    //}
 	}
 
-	//通信，对 cfmarker_offd 进行更新
+#if 0
+	if(myrank == print_rank)
+	{
+	    //printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
+	}
+	printf("CLJP: iwhile = %d, rank = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, myrank, ndof, nCPT, nFPT, nSPT, nUPT);
+#endif
+
+	MPI_Allreduce(&ndof, &ndof_global, 1, MPI_INT, MPI_SUM, comm);
+	MPI_Allreduce(&nCPT, &nCPT_global, 1, MPI_INT, MPI_SUM, comm);
+	MPI_Allreduce(&nFPT, &nFPT_global, 1, MPI_INT, MPI_SUM, comm);
+	MPI_Allreduce(&nSPT, &nSPT_global, 1, MPI_INT, MPI_SUM, comm);
+	MPI_Allreduce(&nUPT, &nUPT_global, 1, MPI_INT, MPI_SUM, comm);
+
+#if 1
+	MPI_Barrier(comm);
+
+	if(myrank == print_rank)
+	{
+	    printf("CLJP GLOBAL: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", 
+		    iwhile, ndof_global, nCPT_global, nFPT_global, nSPT_global, nUPT_global);
+	}
+	MPI_Barrier(comm);
+#endif
+
+#if ASSERT_PAR_CLJP
+	//if(nCPT+nFPT+nSPT+nUPT != ndof)
+	//    printf("nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d, ndof = %d\n\n", nCPT, nFPT, nSPT, nUPT, ndof);
+	//else
+	//    printf("\n");
+	assert(nCPT+nFPT+nSPT+nUPT == ndof);
+#endif
+
+	MPI_Allreduce(&nUPT, &nUPT_global, 1, MPI_INT, MPI_SUM, comm);
+	if(nUPT_global == 0) break;
+
+	/*
+	 * 通信：对 measure 在offd的部分进行更新, 为生成 independent set D 做准备
+	 * 
+	 * 发送：将measure在diag的部分提取出邻居进程需要的信息
+	 * 接收：将信息赋值到measure在offd的部分
+	 */
+	nindex_send = comm_info->nindex_row;
+	 index_send = comm_info->index_row;
+	nindex_recv = comm_info->nindex_col;
+	 index_recv = comm_info->index_col;
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    for(j=0; j<nindex_send[i]; j++)
+		measure_send[i][j] = measure[index_send[i][j]];
+	}
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    MPI_Sendrecv(measure_send[i], nindex_send[i], MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+			 measure_recv[i], nindex_recv[i], MPI_DOUBLE, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+			 comm, MPI_STATUS_IGNORE);
+	}
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    for(j=0; j<nindex_recv[i]; j++)
+		measure[S_diag_nc+index_recv[i][j]] = measure_recv[i][j];
+	}
+#if 0
+	if(myrank == print_rank)
+	{
+	    printf("measure on rank %d, iwhile = %d: ", myrank, iwhile);
+	    for(i=0; i<A->diag->nr; i++) printf("%f ", measure[i]);
+	    printf("\n");
+	}
+#endif
+
+	//通信，对 cfmarker_offd 进行更新, 为生成 independent set D 做准备
 	for(i=0; i<A->offd->nc; i++) cfmarker_offd[i] = EXCEPTION_PT;
 	for(i=0; i<nproc_neighbor; i++)
 	{
-
 	    ncfmarker_diag_send = comm_info->nindex_row[i];
 	    for(j=0; j<ncfmarker_diag_send; j++) cfmarker_diag_send[j] = cfmarker[comm_info->index_row[i][j]];
 
@@ -495,160 +645,467 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 			        ncfmarker_offd_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 			 comm, MPI_STATUS_IGNORE);
 	}
+#if 0
 	if(myrank == print_rank)
 	{
-	    printf("shit cfmarker_offd: ");
+	    printf("cfmarker_offd: ");
 	    for(i=0; i<A->offd->nc; i++) printf("%02d ", cfmarker_offd[i]);
 	    printf("\n");
 	}
-
-    }
-
-#if 0
-    int iUPT, jS, kS;
-    int iwhile = 0;
-    while(1)
-    {
-	iwhile++;
-	//printf("head   -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
-	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
-	for(iUPT=0; iUPT<nUPT; iUPT++)
-	{
-	    i = upt_vec[iUPT];
-	    //printf("dof[%d] = %d\n", i, dof[i]);
-	    if((dof[i]!=CPT) && (lambda_ST[i]<1))
-	    {
-		dof[i] = FPT;
-		//nFPT++;
-		//make sure all dependencies have been accounted for
-		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
-		{
-		    if(S_ja[jS] > -1) 
-		    {
-			//if(SPT != dof[S_ja[jS]]) dof[i] = UPT;
-			dof[i] = UPT;
-			//nFPT--;
-		    }
-		}
-	    }
-
-	    if(CPT == dof[i])
-	    {
-		lambda_ST[i] = 0.0;
-		nCPT++;
-		nUPT--;
-		upt_vec[iUPT] = upt_vec[nUPT];
-		upt_vec[nUPT] = i;
-		iUPT--;
-	    }
-	    else if(FPT == dof[i])
-	    {
-		lambda_ST[i] = 0.0;
-		nFPT++;
-		nUPT--;
-		upt_vec[iUPT] = upt_vec[nUPT];
-		upt_vec[nUPT] = i;
-		iUPT--;
-	    }
-	}
-	
-	//printf("CLJP: ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", ndof, nCPT, nFPT, nSPT, nUPT);
-	//printf("middle -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
-#if ASSERT_CLJP
-	//if(nCPT+nFPT+nSPT+nUPT != ndof)
-	//    printf("nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d, ndof = %d\n\n", nCPT, nFPT, nSPT, nUPT, ndof);
-	//else
-	//    printf("\n");
-	assert(nCPT+nFPT+nSPT+nUPT == ndof);
 #endif
 
-	if(nUPT == 0) break;
-
-	if(!Get_independent_set_D(S, ST, lambda_ST, upt_vec, nUPT, dof))
+	nupt_offd = 0;
+	for(i=0; i<A->offd->nc; i++)
 	{
-	    printf("ERROR: Cannot find independent set.\n");
-	    exit(-1);
+	    if(UPT == cfmarker_offd[i])
+		upt_vec_offd[nupt_offd++] = i;
 	}
 
+	/*
+	 * 初步生成 independent set D
+	 * 这时候，cfmarker, cfmarker_offd 中标记为 DPT 的点，可能不是真正的 DPT, 
+	 * 这是因为判断强连接关系是不完整的。需要进行通信，找出真正的 DPT.
+	 */
+	Get_par_independent_set_D(S,measure, upt_vec, nUPT, upt_vec_offd, nupt_offd, cfmarker, cfmarker_offd);
+
+	//int status_D = Get_par_independent_set_D(S,measure, upt_vec, nUPT, upt_vec_offd, nupt_offd, cfmarker, cfmarker_offd);
+	//MPI_Barrier(comm);
+	//if(!status_D) printf("ERROR in rank %d: Cannot find independent set.\n", myrank);
+#if 0
+	if(!Get_par_independent_set_D(S,measure, upt_vec, nUPT, upt_vec_offd, nupt_offd, cfmarker, cfmarker_offd))
+	{
+	    printf("ERROR in rank %d: Cannot find independent set.\n", myrank);
+	    exit(-1);
+	}
+#endif
+#if 0
+	int nDPT_pre = 0;
+	int *dpt_vec_pre = malloc(A->diag->nr * sizeof(int));
+	for(i=0; i<nUPT; i++)
+	{
+	    j = upt_vec[i];
+	    if(DPT == cfmarker[j])
+	    {
+		dpt_vec_pre[nDPT_pre] = j;
+		nDPT_pre++;
+	    }
+	}
+
+	int nDPT_offd_pre = 0;
+	int *dpt_vec_offd_pre = malloc(nupt_offd * sizeof(int));
+	for(i=0; i<nupt_offd; i++)
+	{
+	    j = upt_vec_offd[i];
+	    if(DPT == cfmarker_offd[j])
+	    {
+		dpt_vec_offd_pre[nDPT_offd_pre] = j;
+		nDPT_offd_pre++;
+	    }
+	}
+	MPI_Barrier(comm);
+	if(myrank == 0)
+	{
+	    printf("rank %d: upt      = ", myrank);
+	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 1)
+	{
+	    printf("rank %d: upt      = ", myrank);
+	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 2)
+	{
+	    printf("rank %d: upt      = ", myrank);
+	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 3)
+	{
+	    printf("rank %d: upt      = ", myrank);
+	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 0)
+	{
+	    printf("rank %d: upt_offd = ", myrank);
+	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 1)
+	{
+	    printf("rank %d: upt_offd = ", myrank);
+	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 2)
+	{
+	    printf("rank %d: upt_offd = ", myrank);
+	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 3)
+	{
+	    printf("rank %d: upt_offd = ", myrank);
+	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
+	    printf("\n");
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 0)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
+	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
+	    printf("|| ");
+	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 1)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
+	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
+	    printf("|| ");
+	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 2)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
+	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
+	    printf("|| ");
+	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 3)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
+	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
+	    printf("|| ");
+	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
+	    printf("\n");
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+
+	free(dpt_vec_pre);
+	free(dpt_vec_offd_pre);
+
+#endif
+
+	/*
+	 * 对 cfmarker, cfmarker_offd 进行通信，生成真正的 DPT.
+	 * 要进行两次通信，
+	 * 第一次，汇总 cfmarker_offd, 找出 cfmarker 中真正的 DPT.
+	 * 第二次，将 cfmarker 发送到各邻居进程，得到 cfmarker_offd 上的 DPT.
+	 */
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    ncfmarker_offd_send = comm_info->nindex_col[i];
+	    ncfmarker_diag_recv = comm_info->nindex_row[i];
+	    MPI_Sendrecv(cfmarker_offd+col_start_neighbor[i], 
+			        ncfmarker_offd_send, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+			 cfmarker_diag_recv,
+			        ncfmarker_diag_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000,
+			 comm, MPI_STATUS_IGNORE);
+
+	    for(j=0; j<ncfmarker_diag_recv; j++)
+	    {
+		if((DPT!=cfmarker_diag_recv[j]) && (DPT==cfmarker[comm_info->index_row[i][j]]))
+		    cfmarker[comm_info->index_row[i][j]] = UPT;
+	    }
+	}
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    ncfmarker_diag_send = comm_info->nindex_row[i];
+	    for(j=0; j<ncfmarker_diag_send; j++) cfmarker_diag_send[j] = cfmarker[comm_info->index_row[i][j]];
+
+	    ncfmarker_offd_recv = comm_info->nindex_col[i];
+	//  MPI_Sendrecv(cfmarker_diag_send,
+	//	                ncfmarker_diag_send, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+	//		 cfmarker_offd_recv, 
+	//		        ncfmarker_offd_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+	//		 comm, MPI_STATUS_IGNORE);
+	    MPI_Sendrecv(cfmarker_diag_send,
+		                ncfmarker_diag_send, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+			 cfmarker_offd+col_start_neighbor[i], 
+			        ncfmarker_offd_recv, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+			 comm, MPI_STATUS_IGNORE);
+
+#if 0
+	    if(myrank == print_rank)
+	    {
+		printf("neighbor = %d\n", proc_neighbor[i]);
+		printf("ncfmarker diag send = %d\n", ncfmarker_diag_send);
+		printf("cfmarker diag send: \n");
+		for(j=0; j<ncfmarker_diag_send; j++)
+		    printf("%d ", cfmarker_diag_send[j]);
+		printf("\n");
+		printf("col_start = %d, ncfmarker offd recv = %d\n", col_start_neighbor[i], ncfmarker_offd_recv);
+		printf("cfmarker offd recv: \n");
+		for(j=0; j<ncfmarker_offd_recv; j++)
+		    printf("%d ", cfmarker_offd_recv[j]);
+		printf("\n");
+	    }
+#endif
+#if 0 //应该是错误的代码。 cfmarker_offd 直接采用接收到的值，无须额外比较
+	    for(j=0; j<ncfmarker_offd_recv; j++)
+	    {
+		if((DPT!=cfmarker_offd_recv[j]) && (DPT==cfmarker_offd[comm_info->index_col[i][j]]))
+		    cfmarker_offd[comm_info->index_col[i][j]] = UPT;
+	    }
+#endif
+	}
+	
+#if 0
+	int nDPT = 0;
+	int *dpt_vec = malloc(A->diag->nr * sizeof(int));
+	if(myrank == -1)
+	{
+	    printf("cfmarker = \n");
+	    nDPT = 0;
+	    for(i=0; i<A->diag->nr; i++)
+	    {
+		printf("%d", cfmarker[i]);
+		if(DPT == cfmarker[i])
+		{
+		    printf(" DPT");
+		    nDPT++;
+		}
+		printf("\n");
+	    }
+	    printf("rank %d: nDPT = %d\n", myrank, nDPT);
+	}
+
+	nDPT = 0;
+	for(i=0; i<A->diag->nr; i++)
+	{
+	    if(DPT == cfmarker[i])
+	    {
+		dpt_vec[nDPT] = i;
+		nDPT++;
+	    }
+	}
+
+	MPI_Barrier(comm);
+	if(myrank == 0)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
+	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 1)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
+	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 2)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
+	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	if(myrank == 3)
+	{
+	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
+	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
+	    printf("\n");
+	}
+	MPI_Barrier(comm);
+	free(dpt_vec);
+
+#endif
+
+	for(i=S_diag_nc; i<S_diag_nc+S_offd_nc; i++) measure[i] = 0.0;
+
+	/*
+	 * DPT 生成完毕，下面开始进行一次粗网格挑选。
+	 */
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
-	    //printf("i = %2d, dof[%2d] = %d\n", i, i, dof[i]);
-	    if((dof[i]==DPT) || (dof[i]==CPT) || (dof[i]==COMMON_CPT))
-	    //if(dof[i] > 0)
+	    if((cfmarker[i]==DPT) || (cfmarker[i]==CPT) || (cfmarker[i]==COMMON_CPT))
 	    {
-		dof[i] = CPT;
-		//nCPT++;
-		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+		cfmarker[i] = CPT;
+		for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
 		{
-		    j = S_ja[jS];
-		    //printf("    j = %2d\n", j);
+		    j = S_diag_ja[jS];
 		    if(j > -1)
 		    {
-			S_ja[jS] = -S_ja[jS] - 1;
-			if(dof[j] != DPT)
+			S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+			if((DPT!=cfmarker[j]) && (CPT!=cfmarker[j]) && (COMMON_CPT!=cfmarker[j]))
 			{
-			    lambda_ST[j]--;
-			    //printf("        i = %2d, dof[%2d] = %d, lambda_ST[%2d] = %f\n", i, j, dof[j], j, lambda_ST[j]);
+			    measure[j]--;
 			}
 		    }
 		}
-		//printf("\n");
+		for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+		{
+		    j = S_offd_ja[jS];
+		    if(j > -1)
+		    {
+			S_offd_ja[jS] = -S_offd_ja[jS] - 1;
+			if((DPT!=cfmarker_offd[j]) && (CPT!=cfmarker_offd[j]) && (COMMON_CPT!=cfmarker_offd[j]))
+			{
+			    measure[j+S_diag_nc]--;
+			}
+		    }
+		}
 	    }
 	    else
 	    {
-		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+		for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
 		{
-		    j = S_ja[jS];
+		    j = S_diag_ja[jS];
 		    if(j < 0) j = -j - 1;
-		    if((dof[j]==DPT) || (dof[j]==CPT) || (dof[j]==COMMON_CPT))
-		    //if(dof[i] > 0)
+		    if((cfmarker[j]==DPT) || (cfmarker[j]==CPT) || (cfmarker[j]==COMMON_CPT))
 		    {
-			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
-			dof[j] = COMMON_CPT;
+			if(S_diag_ja[jS] > -1) S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+			cfmarker[j] = COMMON_CPT;
 		    }
-		    else if(SPT == dof[j])
+		    else if(SPT == cfmarker[j])
 		    {
-			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
+			if(S_diag_ja[jS] > -1) S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+		    }
+		}
+		for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+		{
+		    j = S_offd_ja[jS];
+		    if(j < 0) j = -j - 1;
+		    if((cfmarker_offd[j]==DPT) || (cfmarker_offd[j]==CPT) || (cfmarker_offd[j]==COMMON_CPT))
+		    {
+			if(S_offd_ja[jS] > -1) S_offd_ja[jS] = -S_offd_ja[jS] - 1;
+			cfmarker_offd[j] = COMMON_CPT;
+		    }
+		    else if(SPT == cfmarker_offd[j])
+		    {
+			if(S_offd_ja[jS] > -1) S_offd_ja[jS] = -S_offd_ja[jS] - 1;
 		    }
 		}
 
-		for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+		int is_break = 0;
+		for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
 		{
-		    j = S_ja[jS];
+		    j = S_diag_ja[jS];
 		    if(j > -1)
 		    {
-			for(kS=S_ia[j]; kS<S_ia[j+1]; kS++)
+			is_break = 0;
+			for(kS=S_diag_ia[j]; kS<S_diag_ia[j+1]; kS++)
 			{
-			    k = S_ja[kS];
+			    k = S_diag_ja[kS];
 			    if(k < 0) k = -k - 1;
-			    if(dof[k] == COMMON_CPT)
+			    if(cfmarker[k] == COMMON_CPT)
 			    {
-				S_ja[jS] = -S_ja[jS] - 1;
-				lambda_ST[j]--;
+				S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+				measure[j]--;
+				is_break = 1;
 				break;
+			    }
+			}
+			if(0 == is_break)
+			{
+			    for(kS=S_offd_ia[j]; kS<S_offd_ia[j+1]; kS++)
+			    {
+				k = S_offd_ja[kS];
+				if(k < 0) k = -k - 1;
+				if(cfmarker_offd[k] == COMMON_CPT)
+				{
+				    S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+				    measure[j]--;
+				    break;
+				}
+			    }
+			}
+		    }
+		}
+		for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+		{
+		    j = S_offd_ja[jS];
+		    if(j > -1)
+		    {
+			int jS_ext = map_S_offd_col_to_S_ext_row[j];
+			if(jS_ext >= S_ext->nr)
+			    printf("ERROR: rank %02d: %d, %d, %d, %d\n", myrank, j, jS_ext, S_ext->nr, S_offd->nc);
+			assert(jS_ext < S_ext->nr);
+
+			for(kS=S_ext_ia[jS_ext]; kS<S_ext_ia[jS_ext+1]; kS++)
+			{
+			    k = S_ext_ja[kS];
+			    if(k >= 0)
+			    {
+				if(cfmarker[k] == COMMON_CPT)
+				{
+				    S_offd_ja[jS] = -S_offd_ja[jS] - 1;
+				    measure[j+S_diag_nc]--;
+				    break;
+				}
+			    }
+			    else
+			    {
+				k = -k - 1;
+				if(cfmarker_offd[k] == COMMON_CPT)
+				{
+				    S_offd_ja[jS] = -S_offd_ja[jS] - 1;
+				    measure[j+S_diag_nc]--;
+				    break;
+				}
 			    }
 			}
 		    }
 		}
 	    }
 
-	    for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
+	    for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
 	    {
-		j = S_ja[jS];
+		j = S_diag_ja[jS];
 		if(j < 0) j = -j - 1;
-		if(dof[j] == COMMON_CPT) dof[j] = CPT;
+		if(cfmarker[j] == COMMON_CPT) cfmarker[j] = CPT;
+	    }
+	    for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+	    {
+		j = S_offd_ja[jS];
+		if(j < 0) j = -j - 1;
+		if(cfmarker_offd[j] == COMMON_CPT) cfmarker_offd[j] = CPT;
 	    }
 	}
     }
-#endif
+    for(jS=0; jS<S_diag_nn; jS++)
+    {
+	if(S_diag_ja[jS] < 0) S_diag_ja[jS] = -S_diag_ja[jS] - 1;
+    }
+    for(jS=0; jS<S_offd_nn; jS++)
+    {
+	if(S_offd_ja[jS] < 0) S_offd_ja[jS] = -S_offd_ja[jS] - 1;
+    }
+
     //============================ free ========================================
     free(col_start_neighbor); col_start_neighbor = NULL;
     free(cfmarker_offd); cfmarker_offd = NULL;
     free(cfmarker_diag_send); cfmarker_diag_send = NULL;
+    free(cfmarker_diag_recv); cfmarker_diag_recv = NULL;
+    free(cfmarker_offd_recv); cfmarker_offd_recv = NULL;
+
+    free(map_S_offd_col_to_S_ext_row); map_S_offd_col_to_S_ext_row = NULL;
+
     Free_imatcsr(S_ext);
 
     free(upt_vec); upt_vec = NULL;
+    free(upt_vec_offd); upt_vec_offd = NULL;
 
     for(i=0; i<nproc_neighbor; i++)
     {
@@ -756,7 +1213,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     assert(index_S_col == nc);
 #endif
 
-#if 1
+#if 0
     if(myrank == print_rank)
     {
 	printf("G: S_diag_col = \n");
@@ -1060,7 +1517,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 		     comm, MPI_STATUS_IGNORE);
     }
 
-#if 1
+#if 0
     if(myrank == print_rank)
     {
 	Print_imatcsr(S->diag);
@@ -1154,6 +1611,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     int S_ext_nn = 0;
     for(i=0; i<nproc_neighbor; i++) S_ext_nn += nS_ext_col_recv[i];
 
+
     S_ext->nn = S_ext_nn;
     S_ext->ia = (int*)calloc(S_ext->nr+1, sizeof(int));
     S_ext->ja = (int*)calloc(S_ext->nn,   sizeof(int));
@@ -1177,19 +1635,22 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 
     S_ext->va = (int*)calloc(S_ext->nn, sizeof(int));
 
+#if 0
     if(myrank == print_rank)
     {
 	printf("Print S_ext...\n");
 	Print_imatcsr(S_ext);
 	Write_imatcsr_csr(S_ext, "../output/S_ext.dat");
     }
+#endif
 
     //对 S_ext 的列进行处理得到局部编号，并区分属于diag还是offd
     //得到局部编号的方法：在 map_offd_col_l2g 中查找列号，如果找不到，则说明属于 diag.
     //由于 S_ext 每一行中的列号是从小到大排列的，因此每一行遍历一次 map_offd_col_l2g 即可.
+    int *S_ext_ja = S_ext->ja;
+#if 0
     int  S_ext_nr = S_ext->nr;
     int *S_ext_ia = S_ext->ia;
-    int *S_ext_ja = S_ext->ja;
     int  jS_ext;
     if(myrank == print_rank)
     {
@@ -1213,6 +1674,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    printf("\n");
 	}
     }
+#endif
     int insert_diag_left  = position_diag;
     int insert_diag_right = position_diag + nc_diag -1;
     for(k=0; k<S_ext_nn; k++)
@@ -1233,6 +1695,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    S_ext_ja[k] = j-insert_diag_left;
 	}
     }
+#if 0
     if(myrank == print_rank)
     {
 	printf("******************************************************\n");
@@ -1247,6 +1710,7 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    printf("\n");
 	}
     }
+#endif
 #if 0  // 错误的代码，待删除
     int  index_map = 0;
     int  j_global_index;
@@ -1279,10 +1743,12 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     }
 #endif
 
-    if(myrank == print_rank)
-    {
-	Write_imatcsr_csr(S_ext, "../output/S_ext2.dat");
-    }
+    char file_ext[128] = "../output/S_ext_rank_";
+    char charrank[10];
+    sprintf(charrank, "%02d", myrank);
+    strcat(file_ext, charrank);
+    strcat(file_ext, ".dat");
+    Write_imatcsr_csr(S_ext, file_ext);
 
 
     for(i=0; i<nproc_neighbor; i++)
@@ -1405,6 +1871,73 @@ int *Insert_ascend_ivec_to_ivec(int *a, int length_a, int *b, int length_b, int 
 
     assert(index_c == length_a + length_b);
     return c;
+}
+
+static int Get_par_independent_set_D(par_imatcsr *S,            double *measure, 
+	                             int         *upt_vec,      int     nUPT, 
+				     int         *upt_vec_offd, int     nUPT_offd, 
+				     int         *cfmarker,     int    *cfmarker_offd)
+{
+    int *S_diag_ia = S->diag->ia;
+    int *S_diag_ja = S->diag->ja;
+    int *S_offd_ia = S->offd->ia;
+    int *S_offd_ja = S->offd->ja;
+
+    int iUPT, i, jS, j, jj;
+    for(iUPT=0; iUPT<nUPT; iUPT++)
+    {
+	i = upt_vec[iUPT];
+	if(measure[i] > 1) cfmarker[i] = DPT;
+    }
+    for(iUPT=0; iUPT<nUPT_offd; iUPT++)
+    {
+	i = upt_vec_offd[iUPT];
+	if(measure[i+S->diag->nc] > 1) cfmarker_offd[i] = DPT;
+    }
+
+    for(iUPT=0; iUPT<nUPT; iUPT++)
+    {
+	i = upt_vec[iUPT];
+	for(jS=S_diag_ia[i]; jS<S_diag_ia[i+1]; jS++)
+	{
+	    j = S_diag_ja[jS];
+	    if(j < 0) j = -j - 1;
+
+	    if(measure[j] > 1)
+	    {
+		if(measure[i] > measure[j])
+		    cfmarker[j] = NOT_DPT;
+		else if(measure[i] < measure[j])
+		    cfmarker[i] = NOT_DPT;
+	    }
+	}
+	for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
+	{
+	    j = S_offd_ja[jS];
+	    if(j < 0) j = -j - 1;
+	    jj = j + S->diag->nc;
+
+	    if(measure[jj] > 1)
+	    {
+		if(measure[i] > measure[jj])
+		    cfmarker_offd[j] = NOT_DPT;
+		else if(measure[i] < measure[jj])
+		    cfmarker[i] = NOT_DPT;
+	    }
+	}
+    }
+
+    for(iUPT=0; iUPT<nUPT; iUPT++)
+    {
+	i = upt_vec[iUPT];
+	if(DPT == cfmarker[i]) return TRUE;
+    }
+    for(iUPT=0; iUPT<nUPT_offd; iUPT++)
+    {
+	i = upt_vec_offd[iUPT];
+	if(DPT == cfmarker_offd[i]) return TRUE;
+    }
+    return FALSE;
 }
 
 
@@ -1647,63 +2180,6 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 //
 //void Truncate_par_P(par_dmatcsr *P, amg_param param);
 
-
-static int Get_independent_set_D(imatcsr *S, imatcsr *ST, double *measure, int *upt_vec, int nUPT, int *dof)
-{
-    int *S_ia = S->ia;
-    int *S_ja = S->ja;
-    //int *ST_ia = ST->ia;
-    //int *ST_ja = ST->ja;
-
-    int iUPT, i, jS, j;
-    //int jST;
-    for(iUPT=0; iUPT<nUPT; iUPT++)
-    {
-	i = upt_vec[iUPT];
-	if(measure[i] > 1) dof[i] = DPT;
-    }
-
-    for(iUPT=0; iUPT<nUPT; iUPT++)
-    {
-	i = upt_vec[iUPT];
-	for(jS=S_ia[i]; jS<S_ia[i+1]; jS++)
-	{
-	    j = S_ja[jS];
-	    if(j < 0) j = -j - 1;
-
-	    if(measure[j] > 1)
-	    {
-		if(measure[i] > measure[j])
-		    dof[j] = NOT_DPT;
-		else if(measure[i] < measure[j])
-		    dof[i] = NOT_DPT;
-	    }
-	}
-
-	/*
-	for(jST=ST_ia[i]; jST<ST_ia[i+1]; jST++)
-	{
-	    j = ST_ja[jST];
-	    if(j < 0) j = -j - 1;
-
-	    if(measure[j] > 1)
-	    {
-		if(measure[i] > measure[j])
-		    dof[j] = NOT_DPT;
-		else if(measure[i] < measure[j])
-		    dof[i] = NOT_DPT;
-	    }
-	}
-	*/
-    }
-
-    for(iUPT=0; iUPT<nUPT; iUPT++)
-    {
-	i = upt_vec[iUPT];
-	if(DPT == dof[i]) return TRUE;
-    }
-    return FALSE;
-}
 
 void Reset_dof(dmatcsr *A)
 {

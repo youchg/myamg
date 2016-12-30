@@ -12,7 +12,7 @@
 
 #include "mpi.h"
 
-int print_rank = 2;
+int print_rank = 0;
 
 int my_CLJP_split(imatcsr *S);
 
@@ -53,25 +53,30 @@ int main(int argc, char *argv[])
     Free_par_imatcsr(S);
     Free_par_dmatcsr(A);
 
+#if 1
     if(myrank == print_rank)
     {
 	//printf("print from %d to %d\n", print_num1, print_num2-1);
 
 	dmatcsr *AA = Read_dmatcsr(file);
 	imatcsr *SS = (imatcsr*)malloc(sizeof(imatcsr));
+	int *dof = (int*)calloc(AA->nr, sizeof(int));
 	Generate_strong_coupling_set(AA, SS, param);
-	Write_imatcsr_csr(SS, "../output/S.dat");
-	my_CLJP_split(SS);
+	CLJP_split(AA, SS, dof);
+	//Write_imatcsr_csr(SS, "../output/S.dat");
+	//my_CLJP_split(SS);
+	free(dof);
 	Free_imatcsr(SS);
 	Free_dmatcsr(AA);
     }
-
+#endif
 
     MPI_Finalize();
 
     return 0;
 }
 
+#if 0
 int my_CLJP_split(imatcsr *S)
 {
     //printf("CLJP spliting...\n");
@@ -97,3 +102,4 @@ int my_CLJP_split(imatcsr *S)
 
     return 1;
 }
+#endif
