@@ -92,7 +92,7 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 	printf("read matrix time: %f\n\n", time_end-time_start);
 	//Print_dmatcsr(diag);
 	//Print_dmatcsr(offd);
-	Print_par_comm_info(comm_info);
+	//Print_par_comm_info(comm_info);
 	printf("\n");
     }
 

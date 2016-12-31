@@ -29,7 +29,7 @@
 #define  DEBUG_TRUNC     0
 #define ASSERT_TRUNC     1
 
-#define  DEBUG_CLJP      8
+#define  DEBUG_CLJP      0
 #define ASSERT_CLJP      1
 
 static int nCPT = 0;
@@ -1393,14 +1393,14 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	    }
 	}
 #if 0
-	int left = 37;
-	int right = 49;
-	printf("iwhile = %d, measure: ", iwhile);
-	for(i=left; i<right; i++) printf("%f ", lambda_ST[i]);
+	int left = 38;
+	int right = 75;
+	printf("iwhile = %d, measure: \n", iwhile);
+	for(i=left; i<=right; i++) printf("%f \n", lambda_ST[i]);
 	printf("\n");
 #endif
 	
-	//printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
+	printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
 	//printf("middle -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
 #if ASSERT_CLJP
 	//if(nCPT+nFPT+nSPT+nUPT != ndof)
@@ -1470,6 +1470,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 		    //if(dof[i] > 0)
 		    {
 			if(S_ja[jS] > -1) S_ja[jS] = -S_ja[jS] - 1;
+			//if(iwhile == 1)printf("set dof [%d] to be COMMON CPT\n", j);
 			dof[j] = COMMON_CPT;
 		    }
 		    else if(SPT == dof[j])

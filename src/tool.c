@@ -161,6 +161,15 @@ int A_cap_B_sorted_ascend(int *A, int lengthA, int *B, int lengthB)
 /* assume elements of both A and B are in ascend order */
 int Get_ivec_cap_ivec(int *A, int lengthA, int *B, int lengthB, int *ncap, int **cap, int **indexA, int **indexB)
 {
+    if((0==lengthA) && (0==lengthB))
+    {
+	ncap = 0;
+	if(NULL != cap) *cap = NULL;
+	if(NULL != indexA) *indexA = NULL;
+	if(NULL != indexB) *indexB = NULL;
+	return TRUE;
+    }
+
     int i, j;
 
     int *idxA = (int*)malloc(lengthA * sizeof(int));

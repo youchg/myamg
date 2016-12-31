@@ -471,8 +471,16 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     int iwhile = 0;
     while(1)
     {
-	if(iwhile >= 20) break;
+	if(iwhile >= 10) break;
 	iwhile++;
+#if 0
+	if(myrank == print_rank)
+	{
+	    printf("     measure on rank %d       : \n", myrank);
+	    for(i=0; i<A->diag->nr; i++) printf("%f \n", measure[i]);
+	    printf("\n");
+	}
+#endif
 
 	//通信：对 measure 在diag的部分进行更新
 	nindex_send = comm_info->nindex_col;
@@ -498,8 +506,8 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 #if 0
 	if(myrank == print_rank)
 	{
-	    printf("     measure on rank %d       : ", myrank);
-	    for(i=0; i<A->diag->nr; i++) printf("%f ", measure[i]);
+	    printf("     measure on rank %d       : \n", myrank);
+	    for(i=0; i<A->diag->nr; i++) printf("%f \n", measure[i]);
 	    printf("\n");
 	}
 #endif
@@ -561,10 +569,6 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	}
 
 #if 0
-	if(myrank == print_rank)
-	{
-	    //printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
-	}
 	printf("CLJP: iwhile = %d, rank = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, myrank, ndof, nCPT, nFPT, nSPT, nUPT);
 #endif
 
@@ -576,11 +580,11 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 
 #if 1
 	MPI_Barrier(comm);
-
 	if(myrank == print_rank)
 	{
 	    printf("CLJP GLOBAL: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", 
 		    iwhile, ndof_global, nCPT_global, nFPT_global, nSPT_global, nUPT_global);
+	    fflush(stdout);
 	}
 	MPI_Barrier(comm);
 #endif
@@ -625,8 +629,8 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 #if 0
 	if(myrank == print_rank)
 	{
-	    printf("measure on rank %d, iwhile = %d: ", myrank, iwhile);
-	    for(i=0; i<A->diag->nr; i++) printf("%f ", measure[i]);
+	    printf("measure on rank %d, iwhile = %d: \n", myrank, iwhile);
+	    for(i=0; i<A->diag->nr; i++) printf("%f \n", measure[i]);
 	    printf("\n");
 	}
 #endif
@@ -679,6 +683,35 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	}
 #endif
 #if 0
+	for(k=0; k<nproc_global; k++)
+	{
+	    MPI_Barrier(comm);
+	    if(myrank == k)
+	    {
+		printf("rank %d: upt      = ", myrank);
+		for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
+		printf("\n");
+		printf("\n");
+		fflush(stdout);
+	    }
+	    MPI_Barrier(comm);
+	}
+	for(k=0; k<nproc_global; k++)
+	{
+	    MPI_Barrier(comm);
+	    if(myrank == k)
+	    {
+		printf("rank %d: upt_offd = ", myrank);
+		for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
+		printf("\n");
+		printf("\n");
+		printf("\n");
+		fflush(stdout);
+	    }
+	    MPI_Barrier(comm);
+	}
+#endif
+#if 0
 	int nDPT_pre = 0;
 	int *dpt_vec_pre = malloc(A->diag->nr * sizeof(int));
 	for(i=0; i<nUPT; i++)
@@ -702,102 +735,20 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 		nDPT_offd_pre++;
 	    }
 	}
-	MPI_Barrier(comm);
-	if(myrank == 0)
+	for(k=0; k<nproc_global; k++)
 	{
-	    printf("rank %d: upt      = ", myrank);
-	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
+	    MPI_Barrier(comm);
+	    if(myrank == k)
+	    {
+		printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
+		for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
+		printf("|| ");
+		for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
+		printf("\n");
+		fflush(stdout);
+	    }
+	    MPI_Barrier(comm);
 	}
-	MPI_Barrier(comm);
-	if(myrank == 1)
-	{
-	    printf("rank %d: upt      = ", myrank);
-	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 2)
-	{
-	    printf("rank %d: upt      = ", myrank);
-	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 3)
-	{
-	    printf("rank %d: upt      = ", myrank);
-	    for(i=0; i<nUPT; i++) printf("%d (%d), ", upt_vec[i], upt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 0)
-	{
-	    printf("rank %d: upt_offd = ", myrank);
-	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 1)
-	{
-	    printf("rank %d: upt_offd = ", myrank);
-	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 2)
-	{
-	    printf("rank %d: upt_offd = ", myrank);
-	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 3)
-	{
-	    printf("rank %d: upt_offd = ", myrank);
-	    for(i=0; i<nupt_offd; i++) printf("%d (%d), ", upt_vec_offd[i], A->map_offd_col_l2g[upt_vec_offd[i]]);
-	    printf("\n");
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 0)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
-	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
-	    printf("|| ");
-	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 1)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
-	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
-	    printf("|| ");
-	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 2)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
-	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
-	    printf("|| ");
-	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 3)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (pre) = ", myrank, iwhile, nDPT_pre);
-	    for(i=0; i<nDPT_pre; i++) printf("%d (%d), ", dpt_vec_pre[i], dpt_vec_pre[i]+A->row_start[myrank]);
-	    printf("|| ");
-	    for(i=0; i<nDPT_offd_pre; i++) printf("%d (%d), ", dpt_vec_offd_pre[i], A->map_offd_col_l2g[dpt_vec_offd_pre[i]]);
-	    printf("\n");
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
 
 	free(dpt_vec_pre);
 	free(dpt_vec_offd_pre);
@@ -871,22 +822,6 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 #if 0
 	int nDPT = 0;
 	int *dpt_vec = malloc(A->diag->nr * sizeof(int));
-	if(myrank == -1)
-	{
-	    printf("cfmarker = \n");
-	    nDPT = 0;
-	    for(i=0; i<A->diag->nr; i++)
-	    {
-		printf("%d", cfmarker[i]);
-		if(DPT == cfmarker[i])
-		{
-		    printf(" DPT");
-		    nDPT++;
-		}
-		printf("\n");
-	    }
-	    printf("rank %d: nDPT = %d\n", myrank, nDPT);
-	}
 
 	nDPT = 0;
 	for(i=0; i<A->diag->nr; i++)
@@ -899,34 +834,20 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	}
 
 	MPI_Barrier(comm);
-	if(myrank == 0)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
-	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	}
+	if(myrank == print_rank) printf("\n");
 	MPI_Barrier(comm);
-	if(myrank == 1)
+	for(k=0; k<nproc_global; k++)
 	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
-	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
+	    MPI_Barrier(comm);
+	    if(myrank == k)
+	    {
+		printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
+		for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
+		printf("\n");
+		fflush(stdout);
+	    }
+	    MPI_Barrier(comm);
 	}
-	MPI_Barrier(comm);
-	if(myrank == 2)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
-	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
-	if(myrank == 3)
-	{
-	    printf("rank %d: iwhile = %d, nDPT = %d, DPT (post) = ", myrank, iwhile, nDPT);
-	    for(i=0; i<nDPT; i++) printf("%d (%d), ", dpt_vec[i], dpt_vec[i]+A->row_start[myrank]);
-	    printf("\n");
-	}
-	MPI_Barrier(comm);
 	free(dpt_vec);
 
 #endif
@@ -939,6 +860,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	for(iUPT=0; iUPT<nUPT; iUPT++)
 	{
 	    i = upt_vec[iUPT];
+	    // 下面 cfmarker[i]==CPT 似乎没必要？ --2016-12-31
 	    if((cfmarker[i]==DPT) || (cfmarker[i]==CPT) || (cfmarker[i]==COMMON_CPT))
 	    {
 		cfmarker[i] = CPT;
@@ -1033,6 +955,15 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 			}
 		    }
 		}
+
+		/*
+		 * FOR DEBUG:
+		 * 要确认 S_ext 是否出错，可以检查 S_ext_ja 的某行。
+		 * 即当 j (jS_ext) 固定的时候，k (S_ext_ja[kS]) 的全局编号时不会随 i 改变的。
+		 *
+		 * 2016-12-31 则是利用此性质找到了 bug 所在，即生成 S_ext 的时候，列号出错导致与 S_offd 的列号不一致。
+		 * Get_S_ext() 函数里也会有相关说明。
+		 */
 		for(jS=S_offd_ia[i]; jS<S_offd_ia[i+1]; jS++)
 		{
 		    j = S_offd_ja[jS];
@@ -1184,34 +1115,16 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     int *S_offd_col_global_index = (int*)malloc(S_offd_nc * sizeof(int));
     for(i=0; i<nc_offd; i++) S_offd_col_global_index[i] = map_offd_col_l2g[S_offd_col[i]];
     int  position_diag = -1;
-    int *S_col_global_index = Insert_ascend_ivec_to_ivec(S_diag_col_global_index, nc_diag, S_offd_col_global_index, nc_offd, &position_diag);
 
-#if 0 //引入了 Insert_ascend_ivec_to_ivec, 下面的代码不需要了
-    int *S_col = (int*)malloc(nc * sizeof(int));
-    int index_S_col = 0;
-    int is_diag_insert = 0;
-    int col_diag_offset = A->col_start[myrank];
-    for(i=0; i<nc_offd; i++)
-    {
-	if(0 == is_diag_insert)
-	{
-	    if(S_diag_col[0]+col_diag_offset < map_offd_col_l2g[S_offd_col[i]])
-	    {
-		assert(S_diag_col[nc_diag-1]+col_diag_offset < map_offd_col_l2g[S_offd_col[i]]);
-		for(j=0; j<nc_diag; j++)
-		    S_col[index_S_col++] = S_diag_col[j]+col_diag_offset;
-		is_diag_insert = 1;
-	    }
-	}
-	S_col[index_S_col++] = map_offd_col_l2g[S_offd_col[i]];
-    }
-    if(0 == is_diag_insert)
-    {
-	for(j=0; j<nc_diag; j++)
-	    S_col[index_S_col++] = S_diag_col[j]+col_diag_offset;
-    }
-    assert(index_S_col == nc);
-#endif
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 待考虑
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //确实有下面这种情况。
+    //比如本进程上 A_diag = I, A_offd = 0.
+    //这种情况在有限元方法中，当前一些自由度全部是边界自由度的时候，就会因为处理边界条件发生这种情况。
+    //待考虑怎么处理。
+    assert((nc_diag!=0) || (nc_offd!=0));
+    int *S_col_global_index = Insert_ascend_ivec_to_ivec(S_diag_col_global_index, nc_diag, S_offd_col_global_index, nc_offd, &position_diag);
 
 #if 0
     if(myrank == print_rank)
@@ -1356,29 +1269,6 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     // 发送：自己需要哪些进程号（自己进程号，以及邻居进程号）
     int *proc_need_self = Insert_ascend_ivec_to_ivec(&myrank, 1, proc_neighbor, nproc_neighbor, NULL);
 
-#if 0 //引入了 Insert_ascend_ivec_to_ivec, 下面的代码不需要了
-    int *proc_need_self = (int*)malloc((nproc_neighbor+1) * sizeof(int));
-    is_diag_insert = 0;
-    int index_proc_need_self = 0;
-    for(i=0; i<nproc_neighbor; i++) 
-    {
-	if(0 == is_diag_insert)
-	{
-	    if(myrank < proc_neighbor[i])
-	    {
-		proc_need_self[index_proc_need_self++] = myrank;
-		is_diag_insert = 1;
-	    }
-	}
-	proc_need_self[index_proc_need_self++] = proc_neighbor[i];
-    }
-    if(0 == is_diag_insert)
-    {
-	proc_need_self[index_proc_need_self++] = myrank;
-    }
-    assert(index_proc_need_self == nproc_neighbor + 1);
-#endif
-
     //邻居需要哪些进程号（邻居进程本身，以及其邻居进程号）
     int **proc_need_neighbor = (int**)malloc(nproc_neighbor * sizeof(int*));
     for(i=0; i<nproc_neighbor; i++)
@@ -1455,7 +1345,16 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    for(k=0; k<nc_offd_need; k++)
 		ja_offd_need_global_index[k] = map_offd_col_l2g[S_offd_ja[k+S_offd_ia[row]]];
 
-	    int *ja_need_global_index = Insert_ascend_ivec_to_ivec(ja_diag_need_global_index, nc_diag_need, ja_offd_need_global_index, nc_offd_need, NULL);
+	    /*
+	     * assert((nc_diag_need!=0) || (nc_offd_need!=0));
+	     * 一开始是采用上面的 assert 来保证 Insert_ascend_ivec_to_ivec() 的正常使用。
+	     * 但是有时候的确会发生 assert 不通过的现象(dat/fem3d/hydrogen-stiff-4913.dat)。
+	     * 于是对 Insert_ascend_ivec_to_ivec() 和 Get_ivec_cap_ivec() 增加了对程序边界的处理，
+	     * 暂时没有发现会不会出别的问题，需要仔细确认。
+	     */
+	    int *ja_need_global_index = NULL;
+	    if((nc_diag_need!=0) || (nc_offd_need!=0))
+		ja_need_global_index = Insert_ascend_ivec_to_ivec(ja_diag_need_global_index, nc_diag_need, ja_offd_need_global_index, nc_offd_need, NULL);
 
 	    int *cap;
 	    int *index_cap;
@@ -1675,6 +1574,28 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	}
     }
 #endif
+
+    /*
+     * DEBUG LOG 2016-12-31: 
+     * 对 S_ext_ja 最后处理时要小心，因为目前 S_ext_ja 中存储的实际上是
+     * S_diag 和 S_offd 去掉无用的列 (全为0的列) 并合并起来之后的 S_col_global_index 中的索引编号。
+     * 所以下面是将合并后的编号转化成合并前分别的编号，从而通过 S_diag 或 S_offd 获得列的局部编号。
+     * 但一开始没有将 S_diag 和 S_offd 的列压缩过程考虑进来，就直接分别用下面方式获得局部编号：
+     * S_ext_ja[k] = -j - 1;
+     * S_ext_ja[k] = -(j-nc_diag) - 1;
+     * S_ext_ja[k] = j-insert_diag_left;
+     * 此做法做在对九点差分格式产生的矩阵([-1 -4 -1; -4 20 -4; -1 -4 -1])进行测试时并未发现问题，
+     * 这是因为矩阵元素的值太过单一，列压缩的过程实际上并未做任何事情。
+     * 在对有限元产生的矩阵进行测试时，则结果始终不对（cfsplit的结果依赖于进程数）。
+     * 经过一天的排查，终于查出来是这里的错误。改正如下：
+     * S_ext_ja[k] = -S_offd_col[j] - 1;
+     * S_ext_ja[k] = -(S_offd_col[j-nc_diag]) - 1;
+     * S_ext_ja[k] = S_diag_col[j-insert_diag_left];
+     * 然后cfsplit的结果"貌似"正确了。
+     * 最终定位这里的错误，是在 Split_par_CLJP() 函数中，用到 S_ext 的地方，
+     * 通过固定某一行输出 S_ext 列的全局编号发现的。
+     * 该函数中也有相关说明。
+     */
     int insert_diag_left  = position_diag;
     int insert_diag_right = position_diag + nc_diag -1;
     for(k=0; k<S_ext_nn; k++)
@@ -1683,16 +1604,16 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	if(j < insert_diag_left)
 	{
 	    assert(j >= 0);
-	    S_ext_ja[k] = -j - 1;
+	    S_ext_ja[k] = -S_offd_col[j] - 1;
 	}
 	else if(j > insert_diag_right)
 	{
 	    assert(j < nc);
-	    S_ext_ja[k] = -(j-nc_diag) - 1;
+	    S_ext_ja[k] = -(S_offd_col[j-nc_diag]) - 1;
 	}
 	else
 	{
-	    S_ext_ja[k] = j-insert_diag_left;
+	    S_ext_ja[k] = S_diag_col[j-insert_diag_left];
 	}
     }
 #if 0
@@ -1743,12 +1664,14 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
     }
 #endif
 
+#if 0
     char file_ext[128] = "../output/S_ext_rank_";
     char charrank[10];
     sprintf(charrank, "%02d", myrank);
     strcat(file_ext, charrank);
     strcat(file_ext, ".dat");
     Write_imatcsr_csr(S_ext, file_ext);
+#endif
 
 
     for(i=0; i<nproc_neighbor; i++)
@@ -1822,7 +1745,12 @@ int Get_nonnegtive_ivec_all_value_ascend(int *x, int length, int max_val, int *n
 //将 a 插入到 b 中，返回插入后的向量，长度为 length_a+length_b
 int *Insert_ascend_ivec_to_ivec(int *a, int length_a, int *b, int length_b, int *position)
 {
-    assert((length_a!=0) || (length_b!=0));
+    //assert((length_a!=0) || (length_b!=0));
+    if(length_a==0 && length_b==0)
+    {
+	if(NULL != position) *position = -1;
+	return NULL;
+    }
 
     int i, j;
     int *c = (int*)malloc((length_a+length_b) * sizeof(int));
