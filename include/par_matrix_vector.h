@@ -95,4 +95,17 @@ void Print_par_comm_info(par_comm_info *info);
 
 par_comm_info *Copy_par_comm_info (par_comm_info *info);
 
+
+
+void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn);
+void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start);
+void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd);
+void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max);
+void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g);
+void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, par_comm_info *comm_info);
+void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, int *nproc_neighbor, int *proc_neighbor);
+void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, int nproc_neighbor, int *proc_neighbor, int *col_start, int *map_offd_col_l2g, int *nidx, int **idx);
+void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, int nproc_neighbor, int *proc_neighbor, int *col_start, int *map_offd_col_l2g, int *nidx, int **idx);
+
+void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype);
 #endif

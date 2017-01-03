@@ -9,10 +9,11 @@
 #include "tool.h"
 #include "par_matrix_vector.h"
 #include "par_cfsplit.h"
+#include "par_linear_algebra.h"
 
 #include "mpi.h"
 
-int print_rank = 1;
+int print_rank = 2;
 
 int my_CLJP_split(imatcsr *S);
 
@@ -46,11 +47,28 @@ int main(int argc, char *argv[])
     Generate_par_strong_coupling_set(A, S, param);
     par_ivec *dof = Init_par_ivec_length_comm(A->diag->nr, A->comm);
     Split_par_CLJP(A, S, dof);
-    //imatcsr *S_ext = Get_S_ext(A, S);
+    par_dmatcsr *P = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    Get_par_interpolation_direct(A, S, dof, P);
+    par_dmatcsr *AP = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    Multi_par_dmatcsr_dmatcsr(A, P, AP);
+    Write_par_dmatcsr_csr(AP, "../output/AP.par.dat", 0);
+    Free_par_dmatcsr(AP);
+#if 0
+    if(myrank == print_rank)
+    {
+	printf("P(%d:%d,%d:%d)\n", P->row_start[myrank]+1, P->row_start[myrank+1]-1+1, 
+		P->col_start[myrank]+1, P->col_start[myrank+1]-1+1);
+	Write_dmatcsr_csr(P->diag, "../output/P_diag.dat");
+	Write_dmatcsr_csr(P->offd, "../output/P_offd.dat");
+	Write_dmatcsr_csr(A->diag, "../output/A_diag.dat");
+	Write_dmatcsr_csr(A->offd, "../output/A_offd.dat");
+    }
+#endif
 
     print_num1 = A->col_start[myrank];
     print_num2 = A->col_start[myrank+1];
 
+    Free_par_dmatcsr(P);
     Free_par_ivec(dof);
     //Free_imatcsr(S_ext);
     Free_par_imatcsr(S);
@@ -67,11 +85,21 @@ int main(int argc, char *argv[])
 	int *dof = (int*)calloc(AA->nr, sizeof(int));
 	Generate_strong_coupling_set(AA, SS, param);
 	CLJP_split(AA, SS, dof);
+	dmatcsr *PP = (dmatcsr*)malloc(sizeof(dmatcsr));
+	Generate_sparsity_P_dir(SS, dof, PP);
+	Generate_P_dir(AA, SS, dof, PP);
+	Write_dmatcsr_csr(AA, "../output/A.dat");
+	Write_dmatcsr_csr(PP, "../output/P.dat");
+	dmatcsr *AAPP = (dmatcsr*)malloc(sizeof(dmatcsr));
+	Multi_dmatcsr_dmatcsr(AA, PP, AAPP);
+	Write_dmatcsr_csr(AAPP, "../output/AAPP.dat");
 	//Write_imatcsr_csr(SS, "../output/S.dat");
 	//my_CLJP_split(SS);
 	free(dof);
+	Free_dmatcsr(PP);
 	Free_imatcsr(SS);
 	Free_dmatcsr(AA);
+	Free_dmatcsr(AAPP);
     }
 #endif
 

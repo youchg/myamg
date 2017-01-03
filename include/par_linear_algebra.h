@@ -9,6 +9,8 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y);
 
 double Get_par_dvec_2norm(par_dvec *x);
 
+void Multi_par_dmatcsr_dmatcsr(par_dmatcsr *A, par_dmatcsr *B, par_dmatcsr *C);
+
 #endif
 
 #endif

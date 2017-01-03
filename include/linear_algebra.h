@@ -37,4 +37,6 @@ int Max_ivec    (int    *x, int length, int    *max, int *pos);
 
 int Equal_dmatcsr_struct(dmatcsr *A, dmatcsr *M);
 dmatcsr *Sum_dmatcsr_mApnB(double m, dmatcsr *A, double n, dmatcsr *B);
+dmatcsr *Sum_dmatcsr_dmatcsr(dmatcsr *A, dmatcsr *B);
+void Sort_dmatcsr_ja_by_insertion(dmatcsr *A);
 #endif

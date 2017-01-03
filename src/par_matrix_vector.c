@@ -7,19 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 extern int  print_rank;
 
-static void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn);
-static void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start);
-static void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd);
-static void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max);
-static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g);
-
-static void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, par_comm_info *comm_info);
-static void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, int *nproc_neighbor, int *proc_neighbor);
-static void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, int nproc_neighbor, int *proc_neighbor, int *col_start, int *map_offd_col_l2g, int *nidx, int **idx);
-static void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, int nproc_neighbor, int *proc_neighbor, int *col_start, int *map_offd_col_l2g, int *nidx, int **idx);
 
 par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 {
@@ -111,7 +102,7 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     return A;
 }
 
-static void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn)
+void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn)
 {
     FILE *file = My_fopen(filename, "r");
     assert(EOF!=fscanf(file, "%d\n",   nr));
@@ -120,7 +111,7 @@ static void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int 
     fclose(file); file = NULL;
 }
 
-static void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start)
+void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start)
 {
     int proc_quotient = nr_global / nprocs;
     int proc_residual = nr_global % nprocs;
@@ -132,7 +123,7 @@ static void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start)
     }
 }
 
-static void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd)
+void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd)
 {
     int     nr = A->nr;
     int     nc = A->nc;
@@ -203,13 +194,13 @@ static void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_i
     free(isdiag);
 }
 
-static void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max)
+void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max)
 {
     int  nn = diag->nn;
     int *ja = diag->ja;
     diag->nc = col_idx_max - col_idx_min + 1;
 
-    assert(diag->nc == diag->nr);
+    //assert(diag->nc == diag->nr);
 
     int k;
     for(k=0; k<nn; k++) ja[k] -= col_idx_min;
@@ -220,7 +211,7 @@ static void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max
 * 此时 offd->nc 等于 nc_global
 * 最后将 offd->nc 从 nc_global 改为正确的列数
 */
-static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g)
+void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l2g)
 {
     int  nn = offd->nn;
     int  nc = offd->nc;
@@ -255,7 +246,7 @@ static void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_off
     free(isoffd);
 } 
 
-static void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, par_comm_info *comm_info)
+void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, par_comm_info *comm_info)
 {
     int i, k;
 
@@ -309,7 +300,7 @@ static void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_
 /*
 * proc_neighbor 应全部初始化为 -1
 */
-static void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, 
+void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, 
 	                      int *nproc_neighbor, int *proc_neighbor)
 {
     int np_neighbor = 0;
@@ -350,7 +341,7 @@ static void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, i
 * 则说明 t 进程中的第 k 列（全局编号）不为0，
 * 因此需要将 x_diag 中的第 k 行（全局编号）发送到 t 进程。
 */
-static void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, 
+void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, 
 	                                  int nproc_neighbor, int  *proc_neighbor, 
 	                                  int *col_start,     int  *map_offd_col_l2g, 
 					  int *nidx,          int **idx)
@@ -413,7 +404,7 @@ static void Get_par_dmatcsr_comm_row_info(dmatcsr *offd,
 * 需要找出第 j 列（全局编号）对应的进程 t，
 * 然后接收进程 t 上 x_diag 的第 j 行（全局编号）。
 */
-static void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, 
+void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, 
 	                                  int nproc_neighbor, int *proc_neighbor,
 					  int *col_start,     int *map_offd_col_l2g, 
 					  int *nidx,          int **idx)
@@ -435,7 +426,17 @@ static void Get_par_dmatcsr_comm_col_info(dmatcsr *offd,
 	nidx[proc_mark]++;
     }
 
-    assert(proc_mark == nproc_neighbor-1);
+
+    /*
+     * 一般情况下，该函数执行到这里有 proc_mark == nproc_neighbor-1;
+     * 因为默认矩阵 offd 的列是“压缩”过的，即不含全为0的列。
+     *
+     * 但有时候矩阵的 proc_neighbor 比真正的要多，
+     * 比如生成插值矩阵时 P 的 proc_neighbor 被设置为 与 A 的相同，
+     * 就会出现 proc_mark < nproc_neighbor-1
+     */
+
+    assert(proc_mark <= nproc_neighbor-1);
 }
 
 void Free_par_dmatcsr(par_dmatcsr *A)
@@ -717,4 +718,62 @@ par_comm_info *Copy_par_comm_info (par_comm_info *info)
 
     return info_copy;
 }
+
+
+void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype)
+{
+    int  myrank;
+    MPI_Comm_rank(A->comm, &myrank);
+    char crank[128];
+    if(nametype == 1)
+	sprintf(crank, ".rank%02d-(%d,%d)", myrank, A->row_start[myrank], A->row_start[myrank+1]-1);
+    else
+	sprintf(crank, ".rank%02d", myrank);
+
+    char filename_par[128] = "";
+    strcat(filename_par, filename);
+    strcat(filename_par, crank);
+
+    FILE *file = fopen(filename_par,"w");
+    if(!file)
+    {
+        printf("\nError: Cannot open %s!\n", filename_par);
+	exit(0);
+    }
+    
+    int i, j;
+    
+    dmatcsr *A_diag = A->diag;
+    dmatcsr *A_offd = A->offd;
+    
+    fprintf(file, "%d\n", A_diag->nr);
+    fprintf(file, "%d\n", A->nc_global);
+    fprintf(file, "%d\n", A_diag->nn+A_offd->nn);
+    fprintf(file, "\n");
+    
+    int nr = A_diag->nr;
+    
+    for(i=0; i<=nr; i++) fprintf(file, "%d\n",      A_diag->ia[i] + A_offd->ia[i]);
+    fprintf(file, "\n");
+
+    for(i=0; i<nr; i++)
+    {
+	for(j=A_diag->ia[i]; j<A_diag->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A_diag->ja[j] + A->col_start[myrank]);
+	for(j=A_offd->ia[i]; j<A_offd->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A->map_offd_col_l2g[A_offd->ja[j]]);
+    }
+    fprintf(file, "\n");
+    for(i=0; i<nr; i++)
+    {
+	for(j=A_diag->ia[i]; j<A_diag->ia[i+1]; j++)
+	    fprintf(file, "%15.12f\n", A_diag->va[j]);
+	for(j=A_offd->ia[i]; j<A_offd->ia[i+1]; j++)
+	    fprintf(file, "%15.12f\n", A_offd->va[j]);
+    }
+    
+    fclose(file);
+}
+
+
 #endif

@@ -1400,7 +1400,7 @@ int CLJP_split(dmatcsr *A, imatcsr *S, int *dof)
 	printf("\n");
 #endif
 	
-	printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
+	//printf("CLJP: iwhile = %d, ndof = %d, nCPT = %d, nFPT = %d, nSPT = %d, nUPT = %d\n", iwhile, ndof, nCPT, nFPT, nSPT, nUPT);
 	//printf("middle -- iwhile = %d, nUPT = %d\n", iwhile, nUPT);
 #if ASSERT_CLJP
 	//if(nCPT+nFPT+nSPT+nUPT != ndof)

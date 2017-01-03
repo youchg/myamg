@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <assert.h>
 #include "linear_algebra.h"
 #include "preprocess.h"
 #include "tool.h"
@@ -733,7 +734,6 @@ int Equal_dmatcsr_struct(dmatcsr *A, dmatcsr *M)
     return 0;
 }
 
-
 dmatcsr *Sum_dmatcsr_mApnB(double m, dmatcsr *A, double n, dmatcsr *B)
 {
     if(!Equal_dmatcsr_struct(A, B))
@@ -746,4 +746,116 @@ dmatcsr *Sum_dmatcsr_mApnB(double m, dmatcsr *A, double n, dmatcsr *B)
     dmatcsr *C = Copy_dmatcsr(A);
     Sum_dvec_axpby(A->va, m, B->va, n, C->va, C->nn);
     return C;
+}
+
+dmatcsr *Sum_dmatcsr_dmatcsr(dmatcsr *A, dmatcsr *B)
+{
+    dmatcsr *C = (dmatcsr*)malloc(sizeof(dmatcsr));
+    C->nr = A->nr;
+    C->nc = A->nc;
+    C->nn = 0;
+    C->ia = (int*)calloc(C->nr+1, sizeof(int));
+
+    int *A_ia = A->ia;
+    int *B_ia = B->ia;
+    int *A_ja = A->ja;
+    int *B_ja = B->ja;
+    double *A_va = A->va;
+    double *B_va = B->va;
+
+    int nr = C->nr;
+    int nc = C->nc;
+	
+    int i;
+    int repeat = 0;
+    int aflag, amax, bflag, bmax;
+    int acol, bcol;
+
+    for (i=0; i<nr; ++i)
+    {
+	aflag = A_ia[i];
+	amax  = A_ia[i+1]-1;
+
+	bflag = B_ia[i];
+	bmax  = B_ia[i+1]-1;
+
+	while (aflag <= amax && bflag <= bmax)
+	{
+	    acol = A_ja[aflag];
+	    bcol = B_ja[bflag];
+	    if(bcol == acol)
+	    {
+		repeat++;
+		aflag++;
+		bflag++;
+	    }
+	    else if(bcol < acol)
+		bflag++;
+	    else
+		aflag++;
+	}
+	C->ia[i+1] = A_ia[i+1] + B_ia[i+1] -repeat;
+    }
+    
+    C->nn = C->ia[nr];
+    C->va = (double*)malloc(C->nn * sizeof(double));
+    C->ja = (int*)   malloc(C->nn * sizeof(int));
+
+    int cflag = 0;
+    for(i=0; i<nr; ++i)
+    {
+	aflag = A_ia[i];
+	amax  = A_ia[i+1]-1;
+
+	bflag = B_ia[i];
+	bmax  = B_ia[i+1]-1;
+
+	while(aflag<=amax || bflag<=bmax)
+	{
+	    if(aflag <= amax) 
+		acol = A_ja[aflag];
+	    else 
+		acol = nc+1; 
+
+	    if(bflag <= bmax)
+		bcol = B_ja[bflag];
+	    else
+		bcol = nc+1;
+
+	    if(bcol == acol)
+	    {
+		C->va[cflag] = A_va[aflag] + B_va[bflag];
+		aflag++;
+		bflag++;
+		C->ja[cflag] = acol;
+		cflag++;
+	    }
+	    else if(bcol < acol)
+	    {
+		C->va[cflag] = B_va[bflag];
+		C->ja[cflag] = bcol;
+		bflag++;
+		cflag++;
+	    }
+	    else
+	    {
+		C->va[cflag] = A_va[aflag];
+		C->ja[cflag] = acol;
+		aflag++;
+		cflag++;
+	    }
+	}
+    }
+
+    assert(cflag == C->nn);
+
+    return C;
+}
+
+void Sort_dmatcsr_ja_by_insertion(dmatcsr *A)
+{
+    int nr = A->nr;
+    int i;
+    for(i=0; i<nr; i++)
+        Insertion_ascend_sort_ivec_dvec(A->ja, A->va, A->ia[i], A->ia[i+1]-1);
 }
