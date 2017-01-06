@@ -27,6 +27,21 @@ void Insertion_ascend_sort_dvec(double *a, int left, int right)
     }
 }
 
+void Insertion_ascend_sort_ivec(int *a, int left, int right)
+{
+    int i, j;
+    int tmp;
+    for(i=left; i<=right; i++)
+    {
+        tmp = *(a+i);
+        for(j=i; j>left && *(a+j-1)>tmp; j--)
+        {
+            *(a+j) = *(a+j-1);
+        }
+        *(a+j) = tmp;
+    }
+}
+
 void Quick_ascend_sort_ivec(int *a, int left, int right)
 {
     if ( left < right )

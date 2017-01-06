@@ -13,7 +13,7 @@
 
 #include "mpi.h"
 
-int print_rank = 2;
+int print_rank = 5;
 
 int my_CLJP_split(imatcsr *S);
 
@@ -34,13 +34,13 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     //MPI_Get_processor_name(myname, &myname_len);
 
-    char file[256] = "../../dat/fem3d/hydrogen-stiff-4913.dat";
+    //char file[256] = "../../dat/fem3d/hydrogen-stiff-4913.dat";
     //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine5.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine5.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine4.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine3.m";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_6400x6400.dat";
-    //char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
+    char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
     par_dmatcsr *A = Read_par_dmatcsr(file, MPI_COMM_WORLD);
 
     par_imatcsr *S = (par_imatcsr*)malloc(sizeof(par_imatcsr));
@@ -50,8 +50,18 @@ int main(int argc, char *argv[])
     par_dmatcsr *P = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
     Get_par_interpolation_direct(A, S, dof, P);
     par_dmatcsr *AP = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+
+    //Print_par_dmatcsr(P, 0);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    double tb_multi_par = MPI_Wtime();
     Multi_par_dmatcsr_dmatcsr(A, P, AP);
-    Write_par_dmatcsr_csr(AP, "../output/AP.par.dat", 0);
+    MPI_Barrier(MPI_COMM_WORLD);
+    double te_multi_par = MPI_Wtime();
+    if(myrank == print_rank) printf("Multi_par A*P time: %f\n", te_multi_par-tb_multi_par);
+    Print_par_dmatcsr(AP, 3);
+    //Write_par_dmatcsr_csr(AP, "../output/AP.par.dat", 0);
+    //Write_par_dmatcsr_csr(P, "../output/P.par.dat", 0);
     Free_par_dmatcsr(AP);
 #if 0
     if(myrank == print_rank)
@@ -88,11 +98,16 @@ int main(int argc, char *argv[])
 	dmatcsr *PP = (dmatcsr*)malloc(sizeof(dmatcsr));
 	Generate_sparsity_P_dir(SS, dof, PP);
 	Generate_P_dir(AA, SS, dof, PP);
-	Write_dmatcsr_csr(AA, "../output/A.dat");
-	Write_dmatcsr_csr(PP, "../output/P.dat");
+	//Write_dmatcsr_csr(AA, "../output/A.dat");
+	//Write_dmatcsr_csr(PP, "../output/P.dat");
 	dmatcsr *AAPP = (dmatcsr*)malloc(sizeof(dmatcsr));
+
+	double tb_multi = Get_time();
 	Multi_dmatcsr_dmatcsr(AA, PP, AAPP);
-	Write_dmatcsr_csr(AAPP, "../output/AAPP.dat");
+	double te_multi = Get_time();
+	printf("Multi A*P time: %f\n", te_multi-tb_multi);
+
+	//Write_dmatcsr_csr(AAPP, "../output/AAPP.dat");
 	//Write_imatcsr_csr(SS, "../output/S.dat");
 	//my_CLJP_split(SS);
 	free(dof);

@@ -1083,7 +1083,6 @@ int Get_par_interpolation_direct(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, 
      */
     int *cfmarker_offd      = (int*)malloc(A->offd->nc * sizeof(int));
     for(i=0; i<A->offd->nc; i++) cfmarker_offd[i] = EXCEPTION_PT;
-    for(i=0; i<A->offd->nc; i++) cfmarker_offd[i] = EXCEPTION_PT;
     int *cfmarker_diag_send = (int*)malloc(A->diag->nr * sizeof(int));
     for(i=0; i<nproc_neighbor; i++)
     {
@@ -1109,6 +1108,32 @@ int Get_par_interpolation_direct(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, 
     for(i=0; i<A->diag->nr; i++) if(cfmarker[i]      == CPT) ncpt_diag++;
     int ncpt_offd = 0;
     for(i=0; i<A->offd->nc; i++) if(cfmarker_offd[i] == CPT) ncpt_offd++;
+
+    /*
+     * 将真正需要的 cfmarker_offd 找出来。
+     * 因为有时候cfmarker_offd中某个CPT只在一行用到，而该行对应的自由度
+     * 恰好也为CPT不需要插值，那么实际上该cfmarker_offd中的CPT并不需要用到。
+     * 此时需要找出这样的点，然后不妨在cfmarker_offd中将其设为FPT.
+     */
+    int *cfmarker_offd_status = (int*)calloc(A->offd->nc, sizeof(int));
+    for(i=0; i<A->diag->nr; i++)
+    {
+        if(cfmarker[i] == FPT)
+        {
+            for(j=S->offd->ia[i]; j<S->offd->ia[i+1]; j++)
+	        if(cfmarker_offd[S->offd->ja[j]] == CPT)
+		    cfmarker_offd_status[S->offd->ja[j]] = 1;
+	}
+    }
+    for(i=0; i<A->offd->nc; i++)
+    {
+	if((CPT==cfmarker_offd[i]) && (0==cfmarker_offd_status[i]))
+	{
+	    cfmarker_offd[i] = FPT;
+	    ncpt_offd--;
+	}
+    }
+    free(cfmarker_offd_status); cfmarker_offd_status = NULL;
 
     int *cfmarker_index = (int*)malloc(A->diag->nr * sizeof(int));
     for(i=0; i<A->diag->nr; i++) cfmarker_index[i] = -1;
@@ -1170,6 +1195,10 @@ int Get_par_interpolation_direct(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, 
 
     //生成 P->diag 和 P->offd 的稀疏结构
     Generate_par_sparsity_P_dir(A, S, cfmarker, cfmarker_offd, P);
+    //if(myrank == 5)printf("\n\nP->offd->nc = %d\n", P->offd->nc);
+    //if(myrank == 5)Print_ivec(cfmarker_offd, A->offd->nc);
+    //if(myrank == 5)Print_ivec(cfmarker, A->offd->nr);
+    
     //生成 P->diag 和 P->offd 
     Generate_par_P_dir(A, S, cfmarker, cfmarker_offd, cfmarker_index, cfmarker_offd_index, P);
 
@@ -1218,7 +1247,7 @@ int Get_par_interpolation_direct(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, 
     Get_par_dmatcsr_comm_row_info(P->offd, 
 	                          P->comm_info->nproc_neighbor, P->comm_info->proc_neighbor, 
 	                          P->col_start,                 P->map_offd_col_l2g, 
-				  P->comm_info->nindex_row,       P->comm_info->index_row);
+				  P->comm_info->nindex_row,     P->comm_info->index_row);
     for(i=0; i<P->comm_info->nproc_neighbor; i++)
     {
 	P->comm_info->index_row[i] = (int*)realloc(P->comm_info->index_row[i], P->comm_info->nindex_row[i]*sizeof(int));
@@ -1235,13 +1264,105 @@ int Get_par_interpolation_direct(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof, 
     Get_par_dmatcsr_comm_col_info(P->offd, 
 	                          P->comm_info->nproc_neighbor, P->comm_info->proc_neighbor, 
 				  P->col_start,                 P->map_offd_col_l2g, 
-				  P->comm_info->nindex_col,       P->comm_info->index_col);
+				  P->comm_info->nindex_col,     P->comm_info->index_col);
     for(i=0; i<P->comm_info->nproc_neighbor; i++)
     {
 	P->comm_info->index_col[i] = (int*)realloc(P->comm_info->index_col[i], P->comm_info->nindex_col[i]*sizeof(int));
 	if(0 != P->comm_info->nindex_col[i]) assert(NULL != P->comm_info->index_col[i]);
     }
+
+    if(myrank == -1)
+    {
+	Write_dmatcsr_csr(P->offd, "../output/Poffd.dat");
+	Write_dmatcsr_csr(A->offd, "../output/Aoffd.dat");
+	Write_imatcsr_csr(S->offd, "../output/Soffd.dat");
+	for(i=0; i<P->offd->nc; i++)
+	    printf("i = %d, map = %d\n", i, P->map_offd_col_l2g[i]);
+    }
+
+    //Print_par_dmatcsr(A);
+    //Print_par_dmatcsr(P);
+
+    //可作为 par_dmatcsr->comm_info 的检测工具之一
+    for(i=0; i<P->comm_info->nproc_neighbor; i++)
+    {
+	if(0 == P->comm_info->nindex_col[i])
+	    assert(0 == P->comm_info->nindex_row[i]);
+	if(0 != P->comm_info->nindex_col[i])
+	{
+
+	    assert(0 != P->comm_info->nindex_row[i]);
+#if 0
+	    if(0 == P->comm_info->nindex_row[i])
+	    {
+		printf("rank %d index_col %d: ", myrank, i);
+		for(j=0; j<P->comm_info->nindex_col[i]; j++)
+		    printf("%d ", P->map_offd_col_l2g[P->comm_info->index_col[i][j]]);
+		printf("\n\n");
+	    }
+#endif
+	}
+    }
+    //根据 P->comm_info->index_col 进一步确定 P->comm_info->proc_neighbor
+    int *P_proc_neighbor_flag_recv = (int*)malloc(P->comm_info->nproc_neighbor * sizeof(int));
+    for(i=0; i<P->comm_info->nproc_neighbor; i++)
+    {
+	MPI_Sendrecv(&P->comm_info->nindex_col[i],  1, MPI_INT, 
+		     P->comm_info->proc_neighbor[i], myrank+P->comm_info->proc_neighbor[i]*1000, 
+		     &P_proc_neighbor_flag_recv[i], 1, MPI_INT, 
+		     P->comm_info->proc_neighbor[i], P->comm_info->proc_neighbor[i]+myrank*1000, 
+		     comm, MPI_STATUS_IGNORE);
+    }
+    int P_nproc_neighbor = 0;
+    for(i=0; i<P->comm_info->nproc_neighbor; i++)
+    {
+	if((0!=P->comm_info->nindex_col[i]) || (0!=P_proc_neighbor_flag_recv[i]))
+	{
+	    P->comm_info->proc_neighbor[P_nproc_neighbor] = P->comm_info->proc_neighbor[i];
+	    P->comm_info->nindex_col[P_nproc_neighbor] = P->comm_info->nindex_col[i];
+	    P->comm_info->nindex_row[P_nproc_neighbor] = P->comm_info->nindex_row[i];
+
+	    int *tmp;
+	    tmp = P->comm_info->index_col[P_nproc_neighbor];
+	    P->comm_info->index_col[P_nproc_neighbor] = P->comm_info->index_col[i];
+	    P->comm_info->index_col[i] = tmp;
+
+	    tmp = P->comm_info->index_row[P_nproc_neighbor];
+	    P->comm_info->index_row[P_nproc_neighbor] = P->comm_info->index_row[i];
+	    P->comm_info->index_row[i] = tmp;
+
+	    P_nproc_neighbor++;
+	}
+    }
+#if 0
+    if(P_nproc_neighbor != P->comm_info->nproc_neighbor)
+    {
+	printf("rank %d: nproc_neighbor from %d to %d\n", myrank, P->comm_info->nproc_neighbor, P_nproc_neighbor);
+    }
+#endif
+
+    P->comm_info->proc_neighbor = (int*)realloc(P->comm_info->proc_neighbor, P_nproc_neighbor*sizeof(int));
+    if(0 != P_nproc_neighbor) assert(NULL != P->comm_info->proc_neighbor);
+
+    if(0 == P_nproc_neighbor)
+    {
+	Free_par_comm_info(P->comm_info);
+    }
+    else
+    {
+	for(i=P_nproc_neighbor; i<P->comm_info->nproc_neighbor; i++)
+	{
+	    free(P->comm_info->index_col[i]);
+	    P->comm_info->index_col[i] = NULL;
+
+	    free(P->comm_info->index_row[i]);
+	    P->comm_info->index_row[i] = NULL;
+	}
+    }
+    P->comm_info->nproc_neighbor = P_nproc_neighbor;
     
+    free(P_proc_neighbor_flag_recv); P_proc_neighbor_flag_recv = NULL;
+
     free(P_map_offd_col_l2g_tmp); P_map_offd_col_l2g_tmp = NULL;
     free(ncpt_proc); ncpt_proc = NULL;
 

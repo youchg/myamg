@@ -91,7 +91,7 @@ void Free_par_dvec(par_dvec *x);
 void Free_par_ivec(par_ivec *x);
 
 
-void Print_par_comm_info(par_comm_info *info);
+void Print_par_comm_info(par_comm_info *info, int print_level);
 
 par_comm_info *Copy_par_comm_info (par_comm_info *info);
 
@@ -108,4 +108,5 @@ void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, int nproc_neighbor, int *proc_
 void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, int nproc_neighbor, int *proc_neighbor, int *col_start, int *map_offd_col_l2g, int *nidx, int **idx);
 
 void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype);
+void Print_par_dmatcsr(par_dmatcsr *A, int print_level);
 #endif

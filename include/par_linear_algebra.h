@@ -11,6 +11,8 @@ double Get_par_dvec_2norm(par_dvec *x);
 
 void Multi_par_dmatcsr_dmatcsr(par_dmatcsr *A, par_dmatcsr *B, par_dmatcsr *C);
 
+void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT);
+
 #endif
 
 #endif

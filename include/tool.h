@@ -4,6 +4,7 @@
 double Get_time();
 
 void Insertion_ascend_sort_dvec(double *a, int left, int right);
+void Insertion_ascend_sort_ivec(int    *a, int left, int right);
 void Quick_ascend_sort_ivec    (int    *a, int left, int right);
 
 void Insertion_ascend_sort_ivec_dvec(int *a, double *b, int left, int right);

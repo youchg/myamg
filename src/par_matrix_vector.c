@@ -72,20 +72,21 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     Get_par_dmatcsr_comm_info(nproc_global, offd, col_start, map_offd_col_l2g, comm_info);
 
     time_end = MPI_Wtime();
+#if 1
     if(myrank == print_rank)
     {
 	//Write_dmatcsr_csr(offd, "../output/offd.dat");
 	//Write_dmatcsr_csr(diag, "../output/diag.dat");
 	printf("\n");
-	printf("global info: nr = %d, nc = %d, nn = %d\n\n", nr_global, nc_global, nn_global);
-	printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n\n", 
-		myrank, row_start[myrank+1]-row_start[myrank], row_start[myrank], row_start[myrank+1]-1);
+	printf("global info: nr = %d, nc = %d, nn = %d\n", nr_global, nc_global, nn_global);
+	//printf("myrank = %d, nr = %d, row_start = %d, row_end = %d\n\n", myrank, row_start[myrank+1]-row_start[myrank], row_start[myrank], row_start[myrank+1]-1);
 	printf("read matrix time: %f\n\n", time_end-time_start);
 	//Print_dmatcsr(diag);
 	//Print_dmatcsr(offd);
-	//Print_par_comm_info(comm_info);
+	//Print_par_comm_info(comm_info, 5);
 	printf("\n");
     }
+#endif
 
     par_dmatcsr *A = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
     A->diag = diag;
@@ -296,7 +297,6 @@ void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, 
     comm_info->index_col      = idx_col;
 }
 
-
 /*
 * proc_neighbor 应全部初始化为 -1
 */
@@ -409,7 +409,7 @@ void Get_par_dmatcsr_comm_col_info(dmatcsr *offd,
 					  int *col_start,     int *map_offd_col_l2g, 
 					  int *nidx,          int **idx)
 {
-    int i;
+    int i, j;
 
     int nc = offd->nc;
     int proc_mark = 0;
@@ -420,7 +420,18 @@ void Get_par_dmatcsr_comm_col_info(dmatcsr *offd,
 	col_global_idx = map_offd_col_l2g[i];
 	assert(col_global_idx >= col_start[proc_neighbor[proc_mark]]);
 
-	if(col_global_idx >= col_start[proc_neighbor[proc_mark]+1]) proc_mark++;
+	//if(col_global_idx >= col_start[proc_neighbor[proc_mark]+1]) proc_mark++;
+	if(col_global_idx >= col_start[proc_neighbor[proc_mark]+1])
+	{
+	    for(j=proc_mark+1; j<nproc_neighbor; j++)
+	    {
+		if(col_global_idx < col_start[proc_neighbor[j]+1])
+		{
+		    proc_mark = j;
+		    break;
+		}
+	    }
+	}
 
 	idx[proc_mark][nidx[proc_mark]] = i;
 	nidx[proc_mark]++;
@@ -496,29 +507,60 @@ void Free_par_comm_info(par_comm_info *info)
     if(NULL != info)
     {
 	int i;
-	free(info->proc_neighbor);   info->proc_neighbor = NULL;
-
-	free(info->nindex_row); info->nindex_row = NULL;
-	for(i=0; i<info->nproc_neighbor; i++)
+	if(NULL != info->proc_neighbor)
 	{
-	    free(info->index_row[i]); 
-	    info->index_row[i] = NULL;
+	    free(info->proc_neighbor);
+	    info->proc_neighbor = NULL;
 	}
-	free(info->index_row);  info->index_row = NULL;
 
-	free(info->nindex_col); info->nindex_col = NULL;
-	for(i=0; i<info->nproc_neighbor; i++)
+	if(NULL != info->nindex_row)
 	{
-	    free(info->index_col[i]); 
-	    info->index_col[i] = NULL;
+	    free(info->nindex_row); 
+	    info->nindex_row = NULL;
 	}
-	free(info->index_col);  info->index_col = NULL;
 
-	free(info);         info        = NULL;
+	if(0 < info->nproc_neighbor)
+	{
+	    for(i=0; i<info->nproc_neighbor; i++)
+	    {
+		free(info->index_row[i]); 
+		info->index_row[i] = NULL;
+	    }
+	    free(info->index_row);
+	    info->index_row = NULL;
+	}
+	else
+	{
+	    assert(NULL == info->index_row);
+	}
+
+	if(NULL != info->nindex_col)
+	{
+	    free(info->nindex_col);
+	    info->nindex_col = NULL;
+	}
+
+	if(0 < info->nproc_neighbor)
+	{
+	    for(i=0; i<info->nproc_neighbor; i++)
+	    {
+		free(info->index_col[i]); 
+		info->index_col[i] = NULL;
+	    }
+	    free(info->index_col);
+	    info->index_col = NULL;
+	}
+	else
+	{
+	    assert(NULL == info->index_col);
+	}
+
+	free(info); 
+	info = NULL;
     }
 }
 
-void Print_par_comm_info(par_comm_info *info)
+void Print_par_comm_info(par_comm_info *info, int print_level)
 {
     int  nproc_neighbor = info->nproc_neighbor;
     int *proc_neighbor  = info->proc_neighbor;
@@ -528,38 +570,41 @@ void Print_par_comm_info(par_comm_info *info)
     int **index_col     = info->index_col;
 
     int i, j;
-    printf("\n----------------------------------\n");
-    printf("par_comm_info:\n");
+    if(print_level > 2) printf("----------------------------------\n\n");
+    if(print_level > 2) printf("par_comm_info:\n");
     printf("nproc_neighbor  = %d\n", nproc_neighbor);
     printf("proc_neighbor   = ");
     for(i=0; i<nproc_neighbor; i++) printf("%d ", proc_neighbor[i]);
     printf("\n");
 
-    printf("nindex_row = ");
-    for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_row[i]);
-    printf("\n");
-    printf("index_row  = \n");
-    for(i=0; i<nproc_neighbor; i++) 
+    if(print_level > 2)
     {
-	printf("             ");
-	for(j=0; j<nindex_row[i]; j++) 
-	    printf("%02d ", index_row[i][j]); 
+	printf("nindex_row = ");
+	for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_row[i]);
 	printf("\n");
-    }
-    printf("\n");
+	printf("index_row  = \n");
+	for(i=0; i<nproc_neighbor; i++) 
+	{
+	    printf("             ");
+	    for(j=0; j<nindex_row[i]; j++) 
+		printf("%02d ", index_row[i][j]); 
+	    printf("\n");
+	}
+	printf("\n");
 
-    printf("nindex_col = ");
-    for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_col[i]);
-    printf("\n");
-    printf("index_col  = \n");
-    for(i=0; i<nproc_neighbor; i++) 
-    {
-	printf("             ");
-	for(j=0; j<nindex_col[i]; j++) 
-	    printf("%02d ", index_col[i][j]); 
+	printf("nindex_col = ");
+	for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_col[i]);
 	printf("\n");
+	printf("index_col  = \n");
+	for(i=0; i<nproc_neighbor; i++) 
+	{
+	    printf("             ");
+	    for(j=0; j<nindex_col[i]; j++) 
+		printf("%02d ", index_col[i][j]); 
+	    printf("\n");
+	}
     }
-    printf("----------------------------------\n\n");
+    //if(print_level > 2) printf("----------------------------------\n\n");
 }
 
 par_dvec *Init_par_dvec_mv(par_dmatcsr *A)
@@ -775,5 +820,36 @@ void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype)
     fclose(file);
 }
 
+void Print_par_dmatcsr(par_dmatcsr *A, int print_level)
+{
+    MPI_Comm comm = A->comm;
+    int  myrank, nproc_global;
+    MPI_Comm_size(comm, &nproc_global);
+    MPI_Comm_rank(comm, &myrank);
+
+    if(myrank == 0)
+	printf("global info: nr = %d, nc = %d, nn = %d\n\n", A->nr_global, A->nc_global, A->nn_global);
+
+    int i;
+    for(i=0; i<nproc_global; i++)
+    {
+	MPI_Barrier(comm);
+	if(myrank == i)
+	{
+	    printf("---------------------------------------------------------------------------\n");
+	    printf("rank = %d, nr = %d from %d to %d, nc = %d from %d to %d\n", 
+		    myrank, A->row_start[myrank+1]-A->row_start[myrank], A->row_start[myrank], A->row_start[myrank+1]-1, 
+			    A->col_start[myrank+1]-A->col_start[myrank], A->col_start[myrank], A->col_start[myrank+1]-1);
+	    Print_par_comm_info(A->comm_info, print_level);
+	    //printf("---------------------------------------------------------------------------\n");
+	}
+	MPI_Barrier(comm);
+    }
+
+    MPI_Barrier(comm);
+    if(myrank == 0)
+	printf("===========================================================================\n");
+    MPI_Barrier(comm);
+}
 
 #endif
