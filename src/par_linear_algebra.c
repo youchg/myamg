@@ -407,10 +407,13 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
     dmatcsr *AT_diag = (dmatcsr*)malloc(sizeof(dmatcsr));
     Transpose_dmatcsr(A->diag, AT_diag);
     AT->diag = AT_diag;
+    //if(myrank == 1) Write_dmatcsr_csr(AT->diag, "../output/Rdiag.dat");
 
     dmatcsr *AT_offd = (dmatcsr*)malloc(sizeof(dmatcsr));
     AT_offd->nr = AT->diag->nr;
     AT_offd->ia = (int*)calloc(AT_offd->nr+1, sizeof(int));
+
+    AT->offd = AT_offd;
 
 
     /* 将 A->offd 转置为 A_offdT
@@ -445,6 +448,8 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
 	send_nr_mark += send_nr_nc_nn[0];
     }
 
+    //if(myrank == print_rank) Print_ivec(recv_nr_nc_nn, nproc_neighbor*3);
+
     int AT_offd_nc = 0;
     int AT_offd_nn = 0;
     for(i=0; i<nproc_neighbor; i++)
@@ -463,8 +468,10 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
     for(i=0; i<nproc_neighbor; i++)
     {
 	for(j=0; j<A_comm_info->nindex_col[i]; j++)
+	{
 	    send_row_index_nc[2*j  ] = A_map_offd_col_l2g[A_comm_info->index_col[i][j]];
 	    send_row_index_nc[2*j+1] = A_offdT->ia[A_comm_info->index_col[i][j]+1]-A_offdT->ia[A_comm_info->index_col[i][j]];;
+	}
 
 	MPI_Sendrecv(send_row_index_nc, 
 		     A_comm_info->nindex_col[i]*2, MPI_INT, A_proc_neighbor[i], myrank+A_proc_neighbor[i]*1000, 
@@ -474,6 +481,7 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
 
 	recv_row_mark += recv_nr_nc_nn[3*i];
     }
+    //if(myrank == print_rank) Print_ivec(recv_row_index_nc, recv_nr_total*2);
 
     for(i=0; i<recv_nr_total; i++)
     {
@@ -484,25 +492,25 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
 	recv_row_index_nc[2*i] -= AT->row_start[myrank];
 
     for(i=0; i<recv_nr_total; i++)
-	AT_offd->ia[recv_row_index_nc[2*i]+1] = recv_row_index_nc[2*i+1];
+	AT_offd->ia[recv_row_index_nc[2*i]+1] += recv_row_index_nc[2*i+1];
 
     for(i=0; i<AT_offd->nr; i++) AT_offd->ia[i+1] += AT_offd->ia[i];
 
     AT_offd->nc = AT_offd_nc;
     AT_offd->nn = AT_offd_nn;
     AT_offd->ja = (int*)   malloc(AT_offd_nn * sizeof(int));
-    AT_offd->va = (double*)malloc(AT_offd_nn * sizeof(double));
+    AT_offd->va = (double*)malloc(AT_offd_nn *  sizeof(double));
 
     int send_row_mark = 0;
     int *count_ja = (int*)calloc(AT_offd->nr, sizeof(int));
-    int *recv_col_index = (int*)malloc(A_offdT->nc * sizeof(int));
+    int *recv_col_index = (int*)malloc(AT_offd->nn * sizeof(int));
+    recv_row_mark = 0;
     for(i=0; i<nproc_neighbor; i++)
     {
 	MPI_Sendrecv(A_offdT->ja + A_offdT->ia[send_row_mark], 
 		     A_offdT->ia[send_row_mark+A_comm_info->nindex_col[i]] - A_offdT->ia[send_row_mark], 
 		     MPI_INT, A_proc_neighbor[i], myrank+A_proc_neighbor[i]*1000, 
-		     recv_col_index, 
-		     recv_nr_nc_nn[3*i+2],
+		     recv_col_index, recv_nr_nc_nn[3*i+2],
 		     MPI_INT, A_proc_neighbor[i], A_proc_neighbor[i]+myrank*1000, 
 		     comm, MPI_STATUS_IGNORE);
 
@@ -511,15 +519,73 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
 	int t = 0;
 	for(j=0; j<recv_nr_nc_nn[3*i]; j++)
 	{
-	    for(k=0; k<recv_row_index_nc[2*j+1]; k++)
+	    for(k=0; k<recv_row_index_nc[2*recv_row_mark+2*j+1]; k++)
 	    {
-		m = recv_row_index_nc[2*j];
+		m = recv_row_index_nc[2*recv_row_mark+2*j];
 		AT_offd->ja[AT_offd->ia[m]+count_ja[m]++] = recv_col_index[t++];
+		//if(myrank == print_rank)printf("row %d, %d, %d\n", m, count_ja[m], recv_col_index[t-1]);
 	    }
 	}
+	//if(myrank == print_rank)printf("....................\n");
+	assert(t == recv_nr_nc_nn[3*i+2]);
+	recv_row_mark += recv_nr_nc_nn[3*i];
     }
-    
+
+    send_row_mark = 0;
+    int    *count_va = (int*)   calloc(AT_offd->nr,  sizeof(int));
+    double *recv_nnz = (double*)malloc(AT_offd->nn * sizeof(double));
+    recv_row_mark = 0;
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	MPI_Sendrecv(A_offdT->va + A_offdT->ia[send_row_mark], 
+		     A_offdT->ia[send_row_mark+A_comm_info->nindex_col[i]] - A_offdT->ia[send_row_mark], 
+		     MPI_DOUBLE, A_proc_neighbor[i], myrank+A_proc_neighbor[i]*1000, 
+		     recv_nnz, recv_nr_nc_nn[3*i+2],
+		     MPI_DOUBLE, A_proc_neighbor[i], A_proc_neighbor[i]+myrank*1000, 
+		     comm, MPI_STATUS_IGNORE);
+
+	send_row_mark += A_comm_info->nindex_col[i];
+
+	int t = 0;
+	for(j=0; j<recv_nr_nc_nn[3*i]; j++)
+	{
+	    for(k=0; k<recv_row_index_nc[2*recv_row_mark+2*j+1]; k++)
+	    {
+		m = recv_row_index_nc[2*recv_row_mark+2*j];
+		AT_offd->va[AT_offd->ia[m]+count_va[m]++] = recv_nnz[t++];
+		//if(myrank == print_rank)printf("row %d, %d, %d\n", m, count_ja[m], recv_col_index[t-1]);
+	    }
+	}
+	//if(myrank == print_rank)printf("....................\n");
+	assert(t == recv_nr_nc_nn[3*i+2]);
+	recv_row_mark += recv_nr_nc_nn[3*i];
+    }
+    //if(myrank == print_rank) Write_dmatcsr_csr(AT_offd, "../output/AT_offd.dat");
+
+    int *AT_map_offd_col_l2g = (int*)malloc(AT_offd->nn * sizeof(int));
+    for(i=0; i<AT_offd->nn; i++) AT_map_offd_col_l2g[i] = -1;
+    //下面一行是为了Get_par_dmatcsr_offd_and_map_col_offd_l2g()的需要，后面对该函数进行修改
+    AT_offd->nc = AT->nc_global;
+    Get_par_dmatcsr_offd_and_map_col_offd_l2g(AT_offd, AT_map_offd_col_l2g);
+    if(AT_offd->nc == 0) printf("rank %d\n", myrank);
+    //assert(AT_offd->nc > 0);
+    AT_map_offd_col_l2g = (int*)realloc(AT_map_offd_col_l2g, AT_offd->nc*sizeof(int));
+    //assert(AT_map_offd_col_l2g != NULL);
+    assert(AT_offd->nr == AT_diag->nr);
+
+    par_comm_info *AT_comm_info = (par_comm_info*)malloc(sizeof(par_comm_info));
+    Get_par_dmatcsr_comm_info(nproc_global, AT_offd, AT->col_start, AT_map_offd_col_l2g, AT_comm_info);
+
+    AT_comm_info->nproc_neighbor = nproc_neighbor;
+    for(i=0; i<nproc_neighbor; i++) A_comm_info->proc_neighbor[i] = A_proc_neighbor[i];
+
+    AT->map_offd_col_l2g = AT_map_offd_col_l2g;
+    AT->comm_info = AT_comm_info;
+    AT->comm = comm;
+
     free(count_ja); count_ja = NULL;
+    free(count_va); count_va = NULL;
+    free(recv_nnz); recv_nnz = NULL;
     free(recv_col_index); recv_col_index = NULL;
     free(recv_nr_nc_nn); recv_nr_nc_nn = NULL;
     free(recv_row_index_nc); recv_row_index_nc = NULL;

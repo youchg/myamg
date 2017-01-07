@@ -13,7 +13,7 @@
 
 #include "mpi.h"
 
-int print_rank = 5;
+int print_rank = 0;
 
 int my_CLJP_split(imatcsr *S);
 
@@ -49,8 +49,21 @@ int main(int argc, char *argv[])
     Split_par_CLJP(A, S, dof);
     par_dmatcsr *P = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
     Get_par_interpolation_direct(A, S, dof, P);
-    par_dmatcsr *AP = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    Write_par_dmatcsr_csr(P, "../output/P.par.dat", 0);
+    if(myrank == 1) Write_dmatcsr_csr(P->diag, "../output/Pdiag.dat");
+    Print_par_dmatcsr(P, 3);
 
+#if 1
+    par_dmatcsr *R = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    Transpose_par_dmatcsr(P, R);
+    //Print_par_dmatcsr(R, 3);
+    Write_par_dmatcsr_csr(R, "../output/R.par.dat", 0);
+    if(myrank == 1) Write_dmatcsr_csr(R->diag, "../output/Rdiag.dat");
+    Free_par_dmatcsr(R);
+#endif
+
+#if 0
+    par_dmatcsr *AP = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
     //Print_par_dmatcsr(P, 0);
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -63,7 +76,6 @@ int main(int argc, char *argv[])
     //Write_par_dmatcsr_csr(AP, "../output/AP.par.dat", 0);
     //Write_par_dmatcsr_csr(P, "../output/P.par.dat", 0);
     Free_par_dmatcsr(AP);
-#if 0
     if(myrank == print_rank)
     {
 	printf("P(%d:%d,%d:%d)\n", P->row_start[myrank]+1, P->row_start[myrank+1]-1+1, 
@@ -98,8 +110,13 @@ int main(int argc, char *argv[])
 	dmatcsr *PP = (dmatcsr*)malloc(sizeof(dmatcsr));
 	Generate_sparsity_P_dir(SS, dof, PP);
 	Generate_P_dir(AA, SS, dof, PP);
+
+	dmatcsr *RR = (dmatcsr*)malloc(sizeof(dmatcsr));
+	Transpose_dmatcsr(PP, RR);
+
 	//Write_dmatcsr_csr(AA, "../output/A.dat");
-	//Write_dmatcsr_csr(PP, "../output/P.dat");
+	Write_dmatcsr_csr(PP, "../output/P.dat");
+	Write_dmatcsr_csr(RR, "../output/R.dat");
 	dmatcsr *AAPP = (dmatcsr*)malloc(sizeof(dmatcsr));
 
 	double tb_multi = Get_time();
@@ -111,6 +128,7 @@ int main(int argc, char *argv[])
 	//Write_imatcsr_csr(SS, "../output/S.dat");
 	//my_CLJP_split(SS);
 	free(dof);
+	Free_dmatcsr(RR);
 	Free_dmatcsr(PP);
 	Free_imatcsr(SS);
 	Free_dmatcsr(AA);

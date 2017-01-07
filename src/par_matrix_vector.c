@@ -259,7 +259,7 @@ void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, 
     for(i=0; i<nproc_global; i++) proc_neighbor[i] = -1;
     Get_neighbor_proc(nproc_global, offd, col_start, map_offd_col_l2g, &nproc_neighbor, proc_neighbor);
     proc_neighbor = (int*)realloc(proc_neighbor, nproc_neighbor*sizeof(int));
-    assert(proc_neighbor != NULL);
+    if(0 != nproc_neighbor) assert(proc_neighbor != NULL);
 
     int *nidx_row = (int*) calloc(nproc_neighbor,  sizeof(int));
     int **idx_row = (int**)malloc(nproc_neighbor * sizeof(int*));
@@ -303,6 +303,12 @@ void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, 
 void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, 
 	                      int *nproc_neighbor, int *proc_neighbor)
 {
+    if(0 == offd->nc)
+    {
+	*nproc_neighbor = 0;
+	return;
+    }
+
     int np_neighbor = 0;
 
     assert(map_offd_col_l2g[0] >= col_start[0]);
@@ -409,6 +415,11 @@ void Get_par_dmatcsr_comm_col_info(dmatcsr *offd,
 					  int *col_start,     int *map_offd_col_l2g, 
 					  int *nidx,          int **idx)
 {
+    if(0 == offd->nc)
+    {
+	*nidx = 0;
+	return;
+    }
     int i, j;
 
     int nc = offd->nc;
@@ -850,6 +861,35 @@ void Print_par_dmatcsr(par_dmatcsr *A, int print_level)
     if(myrank == 0)
 	printf("===========================================================================\n");
     MPI_Barrier(comm);
+}
+
+dmatcsr *Init_empty_dmatcsr(int nr)
+{
+    dmatcsr *A = (dmatcsr*)malloc(sizeof(dmatcsr));
+
+    A->nr = nr;
+    A->nc = 0;
+    A->nn = 0;
+
+    A->ia = (int*)calloc(nr+1, sizeof(int));
+    A->ja = NULL;
+    A->va = NULL;
+
+    return A;
+}
+imatcsr *Init_empty_imatcsr(int nr)
+{
+    imatcsr *A = (imatcsr*)malloc(sizeof(imatcsr));
+
+    A->nr = nr;
+    A->nc = 0;
+    A->nn = 0;
+
+    A->ia = (int*)calloc(nr+1, sizeof(int));
+    A->ja = NULL;
+    A->va = NULL;
+
+    return A;
 }
 
 #endif

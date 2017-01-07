@@ -79,6 +79,7 @@ typedef struct PAR_INT_VECTOR_
     int     *recv_data_start;
 } par_ivec;
 
+
 par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm);
 void Free_par_dmatcsr(par_dmatcsr *A);
 void Free_par_imatcsr(par_imatcsr *A);
@@ -109,4 +110,7 @@ void Get_par_dmatcsr_comm_col_info(dmatcsr *offd, int nproc_neighbor, int *proc_
 
 void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype);
 void Print_par_dmatcsr(par_dmatcsr *A, int print_level);
+
+dmatcsr *Init_empty_dmatcsr(int nr);
+imatcsr *Init_empty_imatcsr(int nr);
 #endif
