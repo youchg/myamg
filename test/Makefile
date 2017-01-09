@@ -15,8 +15,7 @@ test_cfsplit:test_cfsplit.exe
 test_multigrid:test_multigrid.exe
 test_cg:test_cg.exe
 test_gs:test_gs.exe
-
-valgrind-test_cfsplit:test_cfsplit.exe
+test_par_multigrid:test_par_multigrid.exe
 
 all: $(TARGETS)
 #################################################

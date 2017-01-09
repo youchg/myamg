@@ -3,6 +3,8 @@
 
 #define WITH_MPI 1
 
+#if WITH_MPI
+
 #include "matrix.h"
 #include "mpi.h"
 
@@ -60,10 +62,10 @@ typedef struct PAR_DOUBLE_VECTOR_
     double *value;
 
     MPI_Comm comm;
-    par_comm_info *comm_info;
-    double **send_data;
-    double  *recv_data;
-    int     *recv_data_start;
+    //par_comm_info *comm_info;
+    //double **send_data;
+    //double  *recv_data;
+    //int     *recv_data_start;
 } par_dvec;
 
 typedef struct PAR_INT_VECTOR_
@@ -73,10 +75,10 @@ typedef struct PAR_INT_VECTOR_
     int *value;
 
     MPI_Comm comm;
-    par_comm_info *comm_info;
-    double **send_data;
-    double  *recv_data;
-    int     *recv_data_start;
+    //par_comm_info *comm_info;
+    //double **send_data;
+    //double  *recv_data;
+    //int     *recv_data_start;
 } par_ivec;
 
 
@@ -95,6 +97,7 @@ void Free_par_ivec(par_ivec *x);
 void Print_par_comm_info(par_comm_info *info, int print_level);
 
 par_comm_info *Copy_par_comm_info (par_comm_info *info);
+par_dmatcsr *Copy_par_dmatcsr(par_dmatcsr *A);
 
 
 
@@ -113,4 +116,10 @@ void Print_par_dmatcsr(par_dmatcsr *A, int print_level);
 
 dmatcsr *Init_empty_dmatcsr(int nr);
 imatcsr *Init_empty_imatcsr(int nr);
+
+par_comm_info *Init_par_comm_info(void);
+
+void Remove_par_dmatcsr_extra_proc_neighbor(par_dmatcsr *A);
+#endif
+
 #endif

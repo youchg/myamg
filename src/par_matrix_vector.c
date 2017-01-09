@@ -11,7 +11,9 @@
 
 extern int  print_rank;
 
-
+/*
+ * 假定所读取矩阵为对称方阵
+ */
 par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
 {
     int  myrank, nproc_global;
@@ -41,8 +43,10 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     //-----------------------------------------------------------------------------------
     dmatcsr *A_local = Read_dmatcsr_part(filename, row_start[myrank], row_start[myrank+1]-1);
 
-    dmatcsr *diag = (dmatcsr*)malloc(sizeof(dmatcsr));
-    dmatcsr *offd = (dmatcsr*)malloc(sizeof(dmatcsr));
+    //dmatcsr *diag = (dmatcsr*)malloc(sizeof(dmatcsr));
+    //dmatcsr *offd = (dmatcsr*)malloc(sizeof(dmatcsr));
+    dmatcsr *diag = Init_empty_dmatcsr(col_start[myrank+1]-col_start[myrank]);
+    dmatcsr *offd = Init_empty_dmatcsr(col_start[myrank+1]-col_start[myrank]);
     //将 A_local 分裂成 diag 和 offd
     //此时 diag 和 offd 中的列还是全局编号
     Separate_dmatcsr_to_diag_offd(A_local, col_start[myrank], col_start[myrank+1]-1, diag, offd);
@@ -63,12 +67,12 @@ par_dmatcsr *Read_par_dmatcsr(const char *filename, MPI_Comm comm)
     Get_par_dmatcsr_offd_and_map_col_offd_l2g(offd, map_offd_col_l2g);
     map_offd_col_l2g = (int*)realloc(map_offd_col_l2g, offd->nc*sizeof(int));
 
-    assert(map_offd_col_l2g != NULL);
+    if(0 != offd->nn) assert(map_offd_col_l2g != NULL);
     assert(offd->nr == diag->nr);
 
     //-----------------------------------------------------------------------------------
     //-----------------------------------------------------------------------------------
-    par_comm_info *comm_info = (par_comm_info*)malloc(sizeof(par_comm_info));
+    par_comm_info *comm_info = Init_par_comm_info();
     Get_par_dmatcsr_comm_info(nproc_global, offd, col_start, map_offd_col_l2g, comm_info);
 
     time_end = MPI_Wtime();
@@ -126,6 +130,8 @@ void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start)
 
 void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd)
 {
+    if(0 == A->nn) return;
+
     int     nr = A->nr;
     int     nc = A->nc;
     int     nn = A->nn;
@@ -136,8 +142,10 @@ void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max,
     int  i, j, k;
     int  nn_diag = 0;
     int  nn_offd = 0;
-    int *ia_diag = (int*)calloc(nr+1, sizeof(int));
-    int *ia_offd = (int*)calloc(nr+1, sizeof(int));
+    //int *ia_diag = (int*)calloc(nr+1, sizeof(int));
+    //int *ia_offd = (int*)calloc(nr+1, sizeof(int));
+    int *ia_diag = diag->ia;
+    int *ia_offd = offd->ia;
     int *isdiag  = (int*)calloc(nn, sizeof(int));
     for(i=0; i<nr; i++)
     {
@@ -153,10 +161,33 @@ void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max,
 
     assert(nn_diag + nn_offd == nn);
 
-    int    *ja_diag = (int*)   malloc(nn_diag * sizeof(int));
-    int    *ja_offd = (int*)   malloc(nn_offd * sizeof(int));
-    double *va_diag = (double*)malloc(nn_diag * sizeof(double));
-    double *va_offd = (double*)malloc(nn_offd * sizeof(double));
+    //printf("nn_offd = %d\n", nn_offd);
+
+    int *ja_diag;
+    int *ja_offd;
+    double *va_diag;
+    double *va_offd;
+
+    if(nn_diag > 0)
+    {
+	ja_diag = (int*)   malloc(nn_diag * sizeof(int));
+	va_diag = (double*)malloc(nn_diag * sizeof(double));
+    }
+    else
+    {
+	ja_diag = NULL;
+	va_diag = NULL;
+    }
+    if(nn_offd > 0)
+    {
+	ja_offd = (int*)   malloc(nn_offd * sizeof(int));
+	va_offd = (double*)malloc(nn_offd * sizeof(double));
+    }
+    else
+    {
+	ja_offd = NULL;
+	va_offd = NULL;
+    }
 
     int count_diag = 0;
     int count_offd = 0;
@@ -181,14 +212,14 @@ void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max,
     diag->nr = nr;
     diag->nc = nc;
     diag->nn = nn_diag;
-    diag->ia = ia_diag;
+    //diag->ia = ia_diag;
     diag->ja = ja_diag;
     diag->va = va_diag;
 
     offd->nr = nr;
     offd->nc = nc;
     offd->nn = nn_offd;
-    offd->ia = ia_offd;
+    //offd->ia = ia_offd;
     offd->ja = ja_offd;
     offd->va = va_offd;
 
@@ -199,11 +230,8 @@ void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max)
 {
     int  nn = diag->nn;
     int *ja = diag->ja;
+    int  k;
     diag->nc = col_idx_max - col_idx_min + 1;
-
-    //assert(diag->nc == diag->nr);
-
-    int k;
     for(k=0; k<nn; k++) ja[k] -= col_idx_min;
 }
 
@@ -249,6 +277,8 @@ void Get_par_dmatcsr_offd_and_map_col_offd_l2g(dmatcsr*offd, int *map_offd_col_l
 
 void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, par_comm_info *comm_info)
 {
+    if(0 == offd->nn) return;
+
     int i, k;
 
     int  nr = offd->nr;
@@ -259,42 +289,46 @@ void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, 
     for(i=0; i<nproc_global; i++) proc_neighbor[i] = -1;
     Get_neighbor_proc(nproc_global, offd, col_start, map_offd_col_l2g, &nproc_neighbor, proc_neighbor);
     proc_neighbor = (int*)realloc(proc_neighbor, nproc_neighbor*sizeof(int));
-    if(0 != nproc_neighbor) assert(proc_neighbor != NULL);
 
-    int *nidx_row = (int*) calloc(nproc_neighbor,  sizeof(int));
-    int **idx_row = (int**)malloc(nproc_neighbor * sizeof(int*));
-    for(i=0; i<nproc_neighbor; i++)
+    if(nproc_neighbor > 0) 
     {
-	idx_row[i] = (int*)malloc(nr * sizeof(int));
-	for(k=0; k<nr; k++) idx_row[i][k] = -1;
-    }
-    Get_par_dmatcsr_comm_row_info(offd, nproc_neighbor, proc_neighbor, col_start, map_offd_col_l2g, nidx_row, idx_row);
-    for(i=0; i<nproc_neighbor; i++)
-    {
-	idx_row[i] = (int*)realloc(idx_row[i], nidx_row[i]*sizeof(int));
-	assert(idx_row[i] != NULL);
-    }
+	assert(proc_neighbor != NULL);
 
-    int *nidx_col = (int*) calloc(nproc_neighbor,  sizeof(int));
-    int **idx_col = (int**)malloc(nproc_neighbor * sizeof(int*));
-    for(i=0; i<nproc_neighbor; i++)
-    {
-	idx_col[i] = (int*)malloc(nc * sizeof(int));
-	for(k=0; k<nc; k++) idx_col[i][k] = -1;
+	int *nidx_row = (int*) calloc(nproc_neighbor,  sizeof(int));
+	int **idx_row = (int**)malloc(nproc_neighbor * sizeof(int*));
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    idx_row[i] = (int*)malloc(nr * sizeof(int));
+	    for(k=0; k<nr; k++) idx_row[i][k] = -1;
+	}
+	Get_par_dmatcsr_comm_row_info(offd, nproc_neighbor, proc_neighbor, col_start, map_offd_col_l2g, nidx_row, idx_row);
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    idx_row[i] = (int*)realloc(idx_row[i], nidx_row[i]*sizeof(int));
+	    assert(idx_row[i] != NULL);
+	}
+
+	int *nidx_col = (int*) calloc(nproc_neighbor,  sizeof(int));
+	int **idx_col = (int**)malloc(nproc_neighbor * sizeof(int*));
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    idx_col[i] = (int*)malloc(nc * sizeof(int));
+	    for(k=0; k<nc; k++) idx_col[i][k] = -1;
+	}
+	Get_par_dmatcsr_comm_col_info(offd, nproc_neighbor, proc_neighbor, col_start, map_offd_col_l2g, nidx_col, idx_col);
+	for(i=0; i<nproc_neighbor; i++)
+	{
+	    idx_col[i] = (int*)realloc(idx_col[i], nidx_col[i]*sizeof(int));
+	    assert(idx_col[i] != NULL);
+	}
+	
+	comm_info->nproc_neighbor = nproc_neighbor;
+	comm_info->proc_neighbor  = proc_neighbor;
+	comm_info->nindex_row     = nidx_row;
+	comm_info->index_row      = idx_row;
+	comm_info->nindex_col     = nidx_col;
+	comm_info->index_col      = idx_col;
     }
-    Get_par_dmatcsr_comm_col_info(offd, nproc_neighbor, proc_neighbor, col_start, map_offd_col_l2g, nidx_col, idx_col);
-    for(i=0; i<nproc_neighbor; i++)
-    {
-	idx_col[i] = (int*)realloc(idx_col[i], nidx_col[i]*sizeof(int));
-	assert(idx_col[i] != NULL);
-    }
-    
-    comm_info->nproc_neighbor = nproc_neighbor;
-    comm_info->proc_neighbor  = proc_neighbor;
-    comm_info->nindex_row     = nidx_row;
-    comm_info->index_row      = idx_row;
-    comm_info->nindex_col     = nidx_col;
-    comm_info->index_col      = idx_col;
 }
 
 /*
@@ -303,7 +337,7 @@ void Get_par_dmatcsr_comm_info(int nproc_global, dmatcsr *offd, int *col_start, 
 void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map_offd_col_l2g, 
 	                      int *nproc_neighbor, int *proc_neighbor)
 {
-    if(0 == offd->nc)
+    if(0 == offd->nn)
     {
 	*nproc_neighbor = 0;
 	return;
@@ -348,10 +382,19 @@ void Get_neighbor_proc(int nproc_global, dmatcsr *offd, int *col_start, int *map
 * 因此需要将 x_diag 中的第 k 行（全局编号）发送到 t 进程。
 */
 void Get_par_dmatcsr_comm_row_info(dmatcsr *offd, 
-	                                  int nproc_neighbor, int  *proc_neighbor, 
-	                                  int *col_start,     int  *map_offd_col_l2g, 
-					  int *nidx,          int **idx)
+				   int nproc_neighbor, int  *proc_neighbor, 
+				   int *col_start,     int  *map_offd_col_l2g, 
+				   int *nidx,          int **idx)
 {
+    int myrank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+
+    if(0 == offd->nn)
+    {
+	nidx = 0;
+	return;
+    }
+
     int i, j, k;
 
     int  nr = offd->nr;
@@ -415,7 +458,7 @@ void Get_par_dmatcsr_comm_col_info(dmatcsr *offd,
 					  int *col_start,     int *map_offd_col_l2g, 
 					  int *nidx,          int **idx)
 {
-    if(0 == offd->nc)
+    if(0 == offd->nn)
     {
 	*nidx = 0;
 	return;
@@ -530,7 +573,7 @@ void Free_par_comm_info(par_comm_info *info)
 	    info->nindex_row = NULL;
 	}
 
-	if(0 < info->nproc_neighbor)
+	if(NULL != info->index_row)
 	{
 	    for(i=0; i<info->nproc_neighbor; i++)
 	    {
@@ -540,18 +583,13 @@ void Free_par_comm_info(par_comm_info *info)
 	    free(info->index_row);
 	    info->index_row = NULL;
 	}
-	else
-	{
-	    assert(NULL == info->index_row);
-	}
-
 	if(NULL != info->nindex_col)
 	{
 	    free(info->nindex_col);
 	    info->nindex_col = NULL;
 	}
 
-	if(0 < info->nproc_neighbor)
+	if(NULL != info->index_col)
 	{
 	    for(i=0; i<info->nproc_neighbor; i++)
 	    {
@@ -561,11 +599,8 @@ void Free_par_comm_info(par_comm_info *info)
 	    free(info->index_col);
 	    info->index_col = NULL;
 	}
-	else
-	{
-	    assert(NULL == info->index_col);
-	}
 
+	info->nproc_neighbor = 0;
 	free(info); 
 	info = NULL;
     }
@@ -590,29 +625,35 @@ void Print_par_comm_info(par_comm_info *info, int print_level)
 
     if(print_level > 2)
     {
-	printf("nindex_row = ");
-	for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_row[i]);
-	printf("\n");
-	printf("index_row  = \n");
-	for(i=0; i<nproc_neighbor; i++) 
+	if(nindex_row != NULL)
 	{
-	    printf("             ");
-	    for(j=0; j<nindex_row[i]; j++) 
-		printf("%02d ", index_row[i][j]); 
+	    printf("nindex_row = ");
+	    for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_row[i]);
+	    printf("\n");
+	    printf("index_row  = \n");
+	    for(i=0; i<nproc_neighbor; i++) 
+	    {
+		printf("             ");
+		for(j=0; j<nindex_row[i]; j++) 
+		    printf("%02d ", index_row[i][j]); 
+		printf("\n");
+	    }
 	    printf("\n");
 	}
-	printf("\n");
 
-	printf("nindex_col = ");
-	for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_col[i]);
-	printf("\n");
-	printf("index_col  = \n");
-	for(i=0; i<nproc_neighbor; i++) 
+	if(nindex_row != NULL)
 	{
-	    printf("             ");
-	    for(j=0; j<nindex_col[i]; j++) 
-		printf("%02d ", index_col[i][j]); 
+	    printf("nindex_col = ");
+	    for(i=0; i<nproc_neighbor; i++) printf("%d ", nindex_col[i]);
 	    printf("\n");
+	    printf("index_col  = \n");
+	    for(i=0; i<nproc_neighbor; i++) 
+	    {
+		printf("             ");
+		for(j=0; j<nindex_col[i]; j++) 
+		    printf("%02d ", index_col[i][j]); 
+		printf("\n");
+	    }
 	}
     }
     //if(print_level > 2) printf("----------------------------------\n\n");
@@ -625,6 +666,8 @@ par_dvec *Init_par_dvec_mv(par_dmatcsr *A)
     x->length        = A->diag->nr;
     x->value         = (double*)calloc(x->length, sizeof(double));
     x->comm          = A->comm;
+
+#if 0
     x->comm_info     = Copy_par_comm_info(A->comm_info);
 
     int nproc_neighbor   = x->comm_info->nproc_neighbor;
@@ -643,6 +686,7 @@ par_dvec *Init_par_dvec_mv(par_dmatcsr *A)
     x->recv_data_start = (int*)calloc(nproc_neighbor+1, sizeof(int));
     for(i=1; i<=nproc_neighbor; i++) x->recv_data_start[i] = x->comm_info->nindex_col[i-1];
     for(i=1; i<=nproc_neighbor; i++) x->recv_data_start[i] += x->recv_data_start[i-1];
+#endif
 
     return x;
 }
@@ -654,10 +698,12 @@ par_ivec *Init_par_ivec_length_comm(int length, MPI_Comm comm)
     x->length          = length;
     x->value           = (int*)calloc(x->length, sizeof(int));
     x->comm            = comm;
+#if 0
     x->comm_info       = NULL;
     x->send_data       = NULL;
     x->recv_data       = NULL;
     x->recv_data_start = NULL;
+#endif
 
     return x;
 }
@@ -668,6 +714,7 @@ void Free_par_dvec(par_dvec *x)
     {
 	free(x->value); x->value = NULL;
 
+#if 0
 	int i;
 	if(NULL != x->send_data)
 	{
@@ -691,7 +738,7 @@ void Free_par_dvec(par_dvec *x)
 	Free_par_comm_info(x->comm_info);
 
 	free(x->recv_data_start); x->recv_data_start = NULL;
-
+#endif
 	free(x); x = NULL;
     }
 }
@@ -702,6 +749,7 @@ void Free_par_ivec(par_ivec *x)
     {
 	free(x->value); x->value = NULL;
 
+#if 0
 	int i;
 	if(NULL != x->send_data)
 	{
@@ -725,18 +773,21 @@ void Free_par_ivec(par_ivec *x)
 	Free_par_comm_info(x->comm_info);
 
 	free(x->recv_data_start); x->recv_data_start = NULL;
-
+#endif
 	free(x); x = NULL;
     }
 }
 
 par_comm_info *Copy_par_comm_info (par_comm_info *info)
 {
-    int i, j;
+    par_comm_info *info_copy = Init_par_comm_info();
+    if(0 == info->nproc_neighbor) return info_copy;
 
     int  nproc_neighbor = info->nproc_neighbor;
+
     int  *proc_neighbor = info->proc_neighbor;
 
+    int i, j;
     int *proc_neighbor_copy = (int*)malloc(nproc_neighbor * sizeof(int));
     for(i=0; i<nproc_neighbor; i++) proc_neighbor_copy[i] = proc_neighbor[i];
 
@@ -764,7 +815,6 @@ par_comm_info *Copy_par_comm_info (par_comm_info *info)
 	for(j=0; j<nindex_col[i]; j++) index_col_copy[i][j] = index_col[i][j];
     }
 
-    par_comm_info *info_copy = (par_comm_info*)malloc(sizeof(par_comm_info));
     info_copy->nproc_neighbor = nproc_neighbor;
     info_copy->proc_neighbor  =  proc_neighbor_copy;
     info_copy->index_row      =  index_row_copy;
@@ -773,6 +823,40 @@ par_comm_info *Copy_par_comm_info (par_comm_info *info)
     info_copy->nindex_col     = nindex_col_copy;
 
     return info_copy;
+}
+
+par_dmatcsr *Copy_par_dmatcsr(par_dmatcsr *A)
+{
+    par_dmatcsr *A_copy = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    A_copy->diag = Copy_dmatcsr(A->diag);
+    A_copy->offd = Copy_dmatcsr(A->offd);
+    A_copy->nr_global = A->nr_global;
+    A_copy->nc_global = A->nc_global;
+    A_copy->nn_global = A->nn_global;
+    A_copy->comm      = A->comm;
+    A_copy->comm_info = Copy_par_comm_info(A->comm_info);
+
+    A_copy->map_offd_col_l2g = NULL;
+
+    int i;
+    if(A->offd->nc > 0)
+    {
+	A_copy->map_offd_col_l2g = (int*)malloc(A->offd->nc * sizeof(int));
+	for(i=0; i<A->offd->nc; i++)
+	    A_copy->map_offd_col_l2g[i] = A->map_offd_col_l2g[i];
+    }
+
+    int  nproc_global;
+    MPI_Comm_size(A->comm, &nproc_global);
+
+    A_copy->row_start = (int*)malloc((nproc_global+1) * sizeof(int));
+    for(i=0; i<=nproc_global; i++)
+	A_copy->row_start[i] = A->row_start[i];
+    A_copy->col_start = (int*)malloc((nproc_global+1) * sizeof(int));
+    for(i=0; i<=nproc_global; i++)
+	A_copy->col_start[i] = A->col_start[i];
+    
+    return A_copy;
 }
 
 
@@ -891,5 +975,98 @@ imatcsr *Init_empty_imatcsr(int nr)
 
     return A;
 }
+
+par_comm_info *Init_par_comm_info(void)
+{
+    par_comm_info *comm_info = (par_comm_info*)malloc(sizeof(par_comm_info));
+
+    comm_info->nproc_neighbor = 0;
+    comm_info->proc_neighbor  = NULL;
+
+    comm_info->nindex_row = NULL;
+    comm_info->index_row  = NULL;
+
+    comm_info->nindex_col = NULL;
+    comm_info->index_col  = NULL;
+
+    return comm_info;
+}
+
+void Remove_par_dmatcsr_extra_proc_neighbor(par_dmatcsr *A)
+{
+    if(A->comm_info->nproc_neighbor == 0) return;
+
+    int  myrank;
+    MPI_Comm comm = A->comm;
+    MPI_Comm_rank(comm, &myrank);
+
+    par_comm_info *comm_info = A->comm_info;
+    int nproc_neighbor = comm_info->nproc_neighbor;
+    int *proc_neighbor = comm_info->proc_neighbor;
+
+    int i;
+
+    int *proc_neighbor_flag = (int*)malloc(nproc_neighbor * sizeof(int));
+    for(i=0; i<nproc_neighbor; i++) proc_neighbor_flag[i] = 1;
+
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	if(0 == comm_info->nindex_row[i])
+	    assert(0 == comm_info->nindex_col[i]);
+	if(0 < comm_info->nindex_row[i])
+	    assert(0 < comm_info->nindex_col[i]);
+
+	MPI_Sendrecv(&comm_info->nindex_row[i], 1, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+		     proc_neighbor_flag+i,      1, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
+		     comm, MPI_STATUS_IGNORE);
+    }
+
+    
+    comm_info->nproc_neighbor = 0;
+    for(i=0; i<nproc_neighbor; i++)
+    {
+	if((comm_info->nindex_row[i]>0) || (proc_neighbor_flag[i]>0))
+	{
+	    comm_info->proc_neighbor[comm_info->nproc_neighbor] = comm_info->proc_neighbor[i];
+	    comm_info->nindex_col[   comm_info->nproc_neighbor] = comm_info->nindex_col[i];
+	    comm_info->nindex_row[   comm_info->nproc_neighbor] = comm_info->nindex_row[i];
+
+	    int *tmp;
+	    tmp = comm_info->index_col[comm_info->nproc_neighbor];
+	    comm_info->index_col[comm_info->nproc_neighbor] = comm_info->index_col[i];
+	    comm_info->index_col[i] = tmp;
+
+	    tmp = comm_info->index_row[comm_info->nproc_neighbor];
+	    comm_info->index_row[comm_info->nproc_neighbor] = comm_info->index_row[i];
+	    comm_info->index_row[i] = tmp;
+
+	    comm_info->nproc_neighbor++;
+	}
+    }
+    
+
+    comm_info->proc_neighbor = (int*)realloc(comm_info->proc_neighbor, comm_info->nproc_neighbor*sizeof(int));
+    if(0 != comm_info->nproc_neighbor) assert(NULL != comm_info->proc_neighbor);
+
+    if(0 == comm_info->nproc_neighbor)
+    {
+	Free_par_comm_info(A->comm_info);
+	A->comm_info = Init_par_comm_info();
+    }
+    else
+    {
+	for(i=comm_info->nproc_neighbor; i<nproc_neighbor; i++)
+	{
+	    free(comm_info->index_col[i]);
+	    comm_info->index_col[i] = NULL;
+
+	    free(comm_info->index_row[i]);
+	    comm_info->index_row[i] = NULL;
+	}
+    }
+
+    free(proc_neighbor_flag); proc_neighbor_flag = NULL;
+}
+
 
 #endif
