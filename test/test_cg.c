@@ -18,12 +18,18 @@
 int main(int argc, char* argv[])
 {
     dmatcsr *A;
+
     amg_param param;
+    Init_amg_param(&param);
+    param.cg_max_iter      = 20;
+
     int i;
 
     double tb_ini = Get_time();
     
-    Init_argv(argc, argv, &param, &A, NULL, NULL);
+    //Init_amg_param_argv(argc, argv, &param, &A, NULL, NULL);
+    char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine5.m";
+    A = Read_dmatcsr(file);
     Print_dmatcsr(A);
     //Print_amg_param(param);
     

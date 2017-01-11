@@ -8,7 +8,8 @@
 #include <assert.h>
 #include <math.h>
 #include <mpi.h>
-#include "linear_algebra.h"
+#include "par_matrix_vector.h"
+#include "par_linear_algebra.h"
 
 // type = 1   boundary problem or eigenvalue problem
 // type = 2   generalized eigenvalue problem
@@ -17,8 +18,9 @@ par_multigrid *Init_par_amg(int max_level, int type)
     int i;
     par_multigrid *par_amg = (par_multigrid*)malloc(sizeof(par_multigrid));
     
-    par_amg->max_level    = max_level;
-    par_amg->actual_level = 0;
+    par_amg->max_level           = max_level;
+    par_amg->actual_level_global = 0;
+    par_amg->actual_level        = 0;
     par_amg->comm  = (MPI_Comm*)    malloc(max_level*sizeof(MPI_Comm));
     par_amg->group = (MPI_Group*)   malloc(max_level*sizeof(MPI_Group));
     par_amg->A     = (par_dmatcsr**)malloc(max_level*sizeof(par_dmatcsr*));
@@ -52,7 +54,8 @@ par_multigrid *Build_par_amg(par_dmatcsr *A, par_dmatcsr *M, int max_level, MPI_
     int type = (NULL==M) ? 1 : 2;
     par_multigrid *par_amg = Init_par_amg(max_level, type);
   
-    par_amg->actual_level = 1;
+    par_amg->actual_level        = 1;
+    par_amg->actual_level_global = 1;
 
     MPI_Comm_dup(comm, &par_amg->comm[0]);
     MPI_Group_excl(group, 0, NULL, &par_amg->group[0]);
@@ -161,59 +164,102 @@ void Free_par_multigrid(par_multigrid *par_amg)
     par_amg = NULL;
 }
 
-
-#if 0
 void Restrict_par_f2c(par_multigrid *pamg, int fine_level, int coarse_level, par_dvec *fine_vec, par_dvec *coarse_vec)
 {
     if(1 < coarse_level-fine_level)
     {
         int i;
-        double *work1 = (double*)calloc(amg->A[fine_level]->nr, sizeof(double));
-        double *work2 = (double*)calloc(amg->A[fine_level]->nr, sizeof(double));
-        double *tmp;
-        Multi_dmatcsr_dvec(amg->R[fine_level], fine_vec, work1);
+        par_dvec *work1 = Init_par_dvec_mv(pamg->A[fine_level]);
+        par_dvec *work2 = Init_par_dvec_mv(pamg->A[fine_level]);
+        par_dvec *tmp;
+        Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, work1);
         for(i=fine_level+1; i<coarse_level-1; i++)
         {
-            Multi_dmatcsr_dvec(amg->R[i], work1, work2);
+            Multi_par_dmatcsr_dvec(pamg->R[i], work1, work2);
             tmp   = work1;
             work1 = work2;
             work2 = tmp;
         }
-        Multi_dmatcsr_dvec(amg->R[coarse_level-1], work1, coarse_vec);
-        free(work1);
-        free(work2);
+        Multi_par_dmatcsr_dvec(pamg->R[coarse_level-1], work1, coarse_vec);
+        Free_par_dvec(work1);
+        Free_par_dvec(work2);
     }
     else
     {
-        Multi_dmatcsr_dvec(amg->R[fine_level], fine_vec, coarse_vec);
+        Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, coarse_vec);
     }
 }
 
-void ProlongCoarse2Fine(multigrid *amg, int coarse_level, int fine_level, double *coarse_vec, double *fine_vec)
+void Prolong_par_c2f(par_multigrid *pamg, int coarse_level, int fine_level, par_dvec *coarse_vec, par_dvec *fine_vec)
 {
     if( 1 < coarse_level-fine_level)
     {
         int i;
-        double *work1 = (double*)calloc(amg->A[fine_level]->nr, sizeof(double));
-        double *work2 = (double*)calloc(amg->A[fine_level]->nr, sizeof(double));
-        double *tmp;
-        Multi_dmatcsr_dvec(amg->P[coarse_level-1], coarse_vec, work1);
+        par_dvec *work1 = Init_par_dvec_mv(pamg->A[fine_level]);
+        par_dvec *work2 = Init_par_dvec_mv(pamg->A[fine_level]);
+        par_dvec *tmp;
+        Multi_par_dmatcsr_dvec(pamg->P[coarse_level-1], coarse_vec, work1);
         for(i=coarse_level-2; i>fine_level; i--)
         {
-            Multi_dmatcsr_dvec(amg->P[i], work1, work2);
+            Multi_par_dmatcsr_dvec(pamg->P[i], work1, work2);
             tmp   = work1;
             work1 = work2;
             work2 = tmp;
         }
-        Multi_dmatcsr_dvec(amg->P[fine_level], work1, fine_vec);
-        free(work1);
-        free(work2);
+        Multi_par_dmatcsr_dvec(pamg->P[fine_level], work1, fine_vec);
+        Free_par_dvec(work1);
+        Free_par_dvec(work2);
     }
     else
     {
-        Multi_dmatcsr_dvec(amg->P[fine_level], coarse_vec, fine_vec);
+        Multi_par_dmatcsr_dvec(pamg->P[fine_level], coarse_vec, fine_vec);
     }
 }
-#endif
 
+void Print_par_amg(par_multigrid *par_amg)
+{
+    int  myrank;
+    MPI_Comm comm = par_amg->comm[0];
+    MPI_Comm_rank(comm, &myrank);
+
+    int i;
+
+    //其实 nr_global 可以通过某层任意进程直接获得
+    int actual_level_global = par_amg->actual_level_global;
+    int *nr_nn_self   = (int*)calloc(actual_level_global*2, sizeof(int));
+    int *nr_nn_global = (int*)calloc(actual_level_global*2, sizeof(int));
+    for(i=0; i<actual_level_global; i++)
+    {
+	if(MPI_COMM_NULL != par_amg->comm[i])
+	{
+	    nr_nn_self[2*i]   = par_amg->A[i]->diag->nr;
+	    nr_nn_self[2*i+1] = par_amg->A[i]->diag->nn + par_amg->A[i]->offd->nn;
+	}
+    }
+    MPI_Allreduce(nr_nn_self, nr_nn_global, actual_level_global*2, MPI_INT, MPI_SUM, par_amg->comm[0]);
+
+    if(0 == myrank)
+    {
+	double gc = 0.0;
+	double oc = 0.0;
+	printf("========================= multigrid =========================\n");
+	printf("            level    nrow      nnz        sparse \n"); 
+	for(i=0; i<actual_level_global; i++)
+	{
+	    int nr_g = nr_nn_global[2*i];
+	    int nn_g = nr_nn_global[2*i+1];
+	    double sp = (double)nn_g/(double)nr_g;
+	    printf("             %2d   %7d   %7d    %9.6f\n", i, nr_g, nn_g, sp);
+	    gc += (double)nr_g;
+	    oc += (double)nn_g;
+	}
+	printf("-------------------------------------------------------------\n");
+	printf("grid complexity = %f, operator complexity = %f\n", 
+	       gc/(double)nr_nn_global[0], oc/(double)nr_nn_global[1]);
+	printf("=============================================================\n");
+    }
+
+    free(nr_nn_global); nr_nn_global = NULL;
+    free(nr_nn_self); nr_nn_self = NULL;
+}
 #endif

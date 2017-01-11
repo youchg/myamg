@@ -15,7 +15,11 @@ test_cfsplit:test_cfsplit.exe
 test_multigrid:test_multigrid.exe
 test_cg:test_cg.exe
 test_gs:test_gs.exe
+test_linear_solver:test_linear_solver.exe
 test_par_multigrid:test_par_multigrid.exe
+test_par_cg:test_par_cg.exe
+test_par_linear_solver:test_par_linear_solver.exe
+test_par_linear_solver:test_par_linear_solver.exe
 
 all: $(TARGETS)
 #################################################

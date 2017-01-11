@@ -17,7 +17,7 @@ int is_print = 0;
 
 void Setup_par_phase(par_multigrid *par_amg, amg_param param)
 {
-    int max_level = par_amg->max_level;
+    int max_level    = par_amg->max_level;
     int i, j;
     if(NULL != par_amg->M)
     {
@@ -110,7 +110,7 @@ void Setup_par_phase(par_multigrid *par_amg, amg_param param)
     {
         for(i=0; i<max_level-1; i++)
         {
-	    if(i == 6) is_print = 1;
+	    //if(i == 6) is_print = 1;
 	    if(MPI_COMM_NULL != par_amg->comm[i])
 	    {
 		int  nproc_global;
@@ -121,6 +121,7 @@ void Setup_par_phase(par_multigrid *par_amg, amg_param param)
 			        par_amg->A[i+1], NULL, ncpt_proc,       param))
 		{
 		    free(ncpt_proc); ncpt_proc = NULL;
+		    //printf("multigrid actual level = %d\n", actual_level);
 		    break;
 		}
 
@@ -176,6 +177,8 @@ void Setup_par_phase(par_multigrid *par_amg, amg_param param)
 	    }
         }
     }
+
+    MPI_Allreduce(&par_amg->actual_level, &par_amg->actual_level_global, 1, MPI_INT, MPI_MAX, par_amg->comm[0]);
 }
 
 int Coarsen_par(par_dmatcsr *A,  par_dmatcsr *M, 

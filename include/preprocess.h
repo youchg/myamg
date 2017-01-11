@@ -94,7 +94,7 @@
  */
 #define LARGE  9999
 #define SMALL -9999
-#define EPS    1e-18
+#define EPS    1e-15
 
 
 /**

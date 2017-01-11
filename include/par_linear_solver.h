@@ -13,23 +13,16 @@ double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
                                   par_dvec *b,         par_dvec *x, 
                                   amg_param param);
 
+void Get_par_residual(par_dmatcsr *A, par_dvec *b, par_dvec *x, par_dvec *r, double *rnorm);
+
+void Linear_solver_par_cg(par_dmatcsr *A, par_dvec *b, par_dvec *x, double tol, int max_iter, 
+		          par_dvec *resi, double *resi_norm, int *niter, int print_level);
+
+void Linear_solver_par_amg(par_multigrid *pamg, int current_level,
+			   par_dvec *b, par_dvec *x, 
+			   amg_param param, 
+			   double *resi_norm, int *ncycle);
 #if 0
-void Get_residual(dmatcsr *A, double *b, double *x, 
-	          double *r, double *rnorm);
-
-
-void Linear_solver_cg(dmatcsr *A, double *b,  double *x, 
-	              double tol, int max_iter, 
-	              double *resi, double *resi_norm, int *niter,
-	              int print_level);
-
-
-
-void Linear_solver_amg(multigrid *amg, int current_level,
-	               double *b, double *x, 
-	               amg_param param, 
-	               double *resi_norm, int *ncycle);
-
 
 void Linear_solver_pcg_amg(multigrid *amg, int current_level, 
                            double *b,  double *x, 

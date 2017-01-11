@@ -116,12 +116,12 @@ static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr
 	{
 	    for(j=A_diag_ia[i]; j<A_diag_ia[i+1]; j++)
 	    {
-		if(A_diag_va[j]<=tol && A_diag_ja[j]!=i)
+		if((A_diag_va[j]-tol<EPS) && (A_diag_ja[j]!=i))
 		    S_diag_ja[j] = A_diag_ja[j];
 	    }
 	    for(j=A_offd_ia[i]; j<A_offd_ia[i+1]; j++)
 	    {
-		if(A_offd_va[j] <= tol)
+		if(A_offd_va[j]-tol < EPS)
 		    S_offd_ja[j] = A_offd_ja[j];
 	    }
 	}
@@ -185,11 +185,22 @@ static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr
     S->nr_global        = -1;
     S->nc_global        = -1;
     S->nn_global        = -1;
+    S->comm             = A->comm;
+    S->comm_info        = NULL;
+#if 1
     S->map_offd_col_l2g = NULL;
     S->row_start        = NULL;
     S->col_start        = NULL;
-    S->comm             = A->comm;
-    S->comm_info        = NULL;
+#else
+    int nproc_global;
+    MPI_Comm_size(A->comm, &nproc_global);
+    S->map_offd_col_l2g = (int*)malloc(A->offd->nc * sizeof(int));
+    for(i=0; i<A->offd->nc; i++) S->map_offd_col_l2g[i] = A0>map_offd_col_l2g[i];
+    S->row_start = (int*)malloc((nproc_global+1)*sizeof(int));
+    for(i=0; i<=nproc_global; i++) S->row_start[i] = A->row_start[i];
+    S->col_start = (int*)malloc((nproc_global+1)*sizeof(int));
+    for(i=0; i<=nproc_global; i++) S->col_start[i] = A->col_start[i];
+#endif
 
     return SUCCESS;
 }
@@ -580,7 +591,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	MPI_Allreduce(&nSPT, &nSPT_global, 1, MPI_INT, MPI_SUM, comm);
 	MPI_Allreduce(&nUPT, &nUPT_global, 1, MPI_INT, MPI_SUM, comm);
 
-#if 1
+#if 0
 	MPI_Barrier(comm);
 	if(myrank == print_rank)
 	{
@@ -611,7 +622,6 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 			iwhile, ndof_global, nCPT_global, nFPT_global, nSPT_global, nUPT_global);
 		fflush(stdout);
 	    }
-#endif
 	    MPI_Barrier(comm);
 	    MPI_Barrier(comm);
 	    for(i=0; i<nproc_global; i++)
@@ -627,6 +637,7 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
 	    MPI_Barrier(comm);
 	    MPI_Barrier(comm);
 	    MPI_Barrier(comm);
+#endif
 	    break;
 	}
 
@@ -1930,15 +1941,75 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	// 将 row_need_neighbor 的全局编号转化为局部编号
 	int nrow = nneed_neighbor[3*i];
 	int ncol = nneed_neighbor[3*i+1];
-	//!!!!!! nrow*ncol+nrow 可能溢出
-	assert(nrow*ncol+nrow <= 420000000);
-	S_ext_col_send[i] = (int*)calloc(nrow*ncol+nrow, sizeof(int));
 
 	int *row_need_neighbor_local_index = (int*)malloc(nrow * sizeof(int));
 	for(j=0; j<nrow; j++)
 	    row_need_neighbor_local_index[j] = row_need_neighbor[i][j] - row_start[myrank];
+	/*
+	 * nrow*ncol+nrow 可能溢出，因此按照下面分配内存不妥：
+	 * S_ext_col_send[i] = (int*)calloc(nrow*ncol+nrow, sizeof(int));
+	 * 现在采取措施，将下面对 j 的循环运行两遍，第一遍找出应分配空间的大小，第二步分配空间。
+	 *
+	 * 不能 col_need_neighbor 的全局编号转化为局部编号，因为不确定本进程上包含所有这些列。
+	 * 因此要将本进程 S->offd, S->diag 中的相关行（设共有 nrow 行）提取出来，
+	 * 将列转化为全局编号，然后再和 col_need_neighbor 找交集。
+	 *
+	 * 例如，找S的第i行S_i和 col_need_neighbor 的交集cap时，以 col_need_neighbor 为主，
+	 * 即 cap 的长度和 col_need_neighbor 相同（设为 ncol），
+	 * 如果第j列（全局编号）位于col_need_neighbor的第k个元素，则 cap[k] = j,
+	 * cap 的其余元素都置为 -1。
+	 *
+	 * 从结果来看，最后输出的是一个稠密矩阵，大小 nrow * ncol
+	 * 考虑到矩阵的稀疏性，每行的交集 cap 中很可能有大量元素为 -1,
+	 * 这是由于每行 cap 中的元素很少造成的。
+	 *
+	 * 具体传输信息时，将所有 cap 中的元素的位置记录下来，然后传递。
+	 * 此时传递的向量长度为 ncap * 2.
+	 *
+	 * 但愿每行 cap 中的元素真的很少。
+	 */
+	for(j=0; j<nrow; j++)
+	{
+	    int row = row_need_neighbor_local_index[j];
+
+	    int nc_diag_need = S_diag_ia[row+1] - S_diag_ia[row];
+	    int *ja_diag_need_global_index = (int*)malloc(nc_diag_need * sizeof(int));
+	    for(k=0; k<nc_diag_need; k++)
+		ja_diag_need_global_index[k] = S_diag_ja[k+S_diag_ia[row]] + col_start[myrank];
+
+	    int nc_offd_need = S_offd_ia[row+1] - S_offd_ia[row];
+	    int *ja_offd_need_global_index = (int*)malloc(nc_offd_need * sizeof(int));
+	    for(k=0; k<nc_offd_need; k++)
+		ja_offd_need_global_index[k] = map_offd_col_l2g[S_offd_ja[k+S_offd_ia[row]]];
+
+	    /*
+	     * assert((nc_diag_need!=0) || (nc_offd_need!=0));
+	     * 一开始是采用上面的 assert 来保证 Insert_ascend_ivec_to_ivec() 的正常使用。
+	     * 但是有时候的确会发生 assert 不通过的现象(dat/fem3d/hydrogen-stiff-4913.dat)。
+	     * 于是对 Insert_ascend_ivec_to_ivec() 和 Get_ivec_cap_ivec() 增加了对程序边界的处理，
+	     * 暂时没有发现会不会出别的问题，需要仔细确认。
+	     */
+	    int *ja_need_global_index = NULL;
+	    if((nc_diag_need!=0) || (nc_offd_need!=0))
+		ja_need_global_index = Insert_ascend_ivec_to_ivec(ja_diag_need_global_index, nc_diag_need, ja_offd_need_global_index, nc_offd_need, NULL);
+
+	    int  ncap;
+	    Get_ivec_cap_ivec(ja_need_global_index, nc_diag_need+nc_offd_need, col_need_neighbor[i], ncol, &ncap, NULL, NULL, NULL);
+
+	    nS_ext_col_send[i] += ncap + 1;
+
+	    free(ja_need_global_index); ja_need_global_index = NULL;
+	    free(ja_offd_need_global_index); ja_offd_need_global_index = NULL;
+	    free(ja_diag_need_global_index); ja_diag_need_global_index = NULL;
+	}
+	//assert(nrow*ncol+nrow <= 420000000);
+	//S_ext_col_send[i] = (int*)calloc(nrow*ncol+nrow, sizeof(int));
+	S_ext_col_send[i] = (int*)calloc(nS_ext_col_send[i], sizeof(int));
+	nS_ext_col_send[i] = 0;
 
 	/*
+	 * 第二遍循环. 已经对 S_ext_col_send[i] 分配内存，可以往里面写入发送的数据了。
+	 *
 	 * 不能 col_need_neighbor 的全局编号转化为局部编号，因为不确定本进程上包含所有这些列。
 	 * 因此要将本进程 S->offd, S->diag 中的相关行（设共有 nrow 行）提取出来，
 	 * 将列转化为全局编号，然后再和 col_need_neighbor 找交集。
@@ -1987,7 +2058,8 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    int  ncap;
 	    Get_ivec_cap_ivec(ja_need_global_index, nc_diag_need+nc_offd_need, col_need_neighbor[i], ncol, &ncap, &cap, NULL, &index_cap);
 
-	    if(nS_ext_col_send[i] >= nrow*ncol+nrow) printf("nrow = %d, ncol = %d, size = %d, want to write %d\n", nrow, ncol, nrow*ncol+nrow, nS_ext_col_send[i]);
+	    if(nS_ext_col_send[i] >= 420000000) printf("nrow = %d, ncol = %d, size = %d, want to write %d\n", nrow, ncol, nrow*ncol+nrow, nS_ext_col_send[i]);
+	    //if(nS_ext_col_send[i] >= nrow*ncol+nrow) printf("nrow = %d, ncol = %d, size = %d, want to write %d\n", nrow, ncol, nrow*ncol+nrow, nS_ext_col_send[i]);
 	    S_ext_col_send[i][nS_ext_col_send[i]] = ncap;
 	    nS_ext_col_send[i] += 1;
 	    for(k=0; k<ncap; k++) 
@@ -2003,10 +2075,11 @@ imatcsr *Get_S_ext(par_dmatcsr *A, par_imatcsr *S)
 	    free(ja_diag_need_global_index); ja_diag_need_global_index = NULL;
 	}
 	
+	//assert(nS_ext_col_send[i] == nS_ext_col_send[2]);
 	free(row_need_neighbor_local_index); row_need_neighbor_local_index = NULL;
 
-	S_ext_col_send[i] = (int*)realloc(S_ext_col_send[i], nS_ext_col_send[i]*sizeof(int));
-	if(0 != nS_ext_col_send[i]) assert(NULL != S_ext_col_send[i]);
+	//S_ext_col_send[i] = (int*)realloc(S_ext_col_send[i], nS_ext_col_send[i]*sizeof(int));
+	//if(0 != nS_ext_col_send[i]) assert(NULL != S_ext_col_send[i]);
     }
 
     /*

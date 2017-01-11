@@ -120,7 +120,22 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 
 double Get_par_dvec_2norm(par_dvec *x)
 {
+#if 0
+    int  myrank, nproc;
+    MPI_Comm comm = x->comm;
+    MPI_Comm_rank(comm, &myrank);
+    MPI_Comm_size(comm, &nproc);
+#endif
     double mynorm_square = Multi_dvec_dvec(x->value, x->value, x->length);
+#if 0
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    printf("rank %d in %d: mynorm_square = %15.12f\n", myrank, nproc, mynorm_square);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+#endif
     double   norm_square = 0.0;
     MPI_Allreduce(&mynorm_square, &norm_square, 1, MPI_DOUBLE, MPI_SUM, x->comm);
     return sqrt(norm_square);
@@ -809,4 +824,46 @@ void Transpose_par_dmatcsr(par_dmatcsr *A, par_dmatcsr *AT)
     Free_dmatcsr(A_offdT);
 }
 
+void Sumself_par_dvec_axpby(par_dvec *x, double a, par_dvec *y, double b)
+{
+    assert(x->length_global == y->length_global);
+    assert(x->length        == y->length);
+
+    int i;
+    for(i=0; i<x->length; i++) y->value[i] = a*x->value[i] + b*y->value[i];
+}
+
+void Copy_par_dvec(par_dvec *x, par_dvec *x_copy)
+{
+    assert(x->length_global == x_copy->length_global);
+    assert(x->length        == x_copy->length);
+
+    int i;
+    for(i=0; i<x->length; i++) x_copy->value[i] = x->value[i];
+}
+
+double Multi_par_dvec_dvec(par_dvec *x, par_dvec *y)
+{
+#if 0
+    int  myrank, nproc;
+    MPI_Comm comm = x->comm;
+    MPI_Comm_rank(comm, &myrank);
+    MPI_Comm_size(comm, &nproc);
+#endif
+    assert(x->length_global == y->length_global);
+    assert(x->length        == y->length);
+    double my_inner_product = Multi_dvec_dvec(x->value, y->value, x->length);
+#if 0
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    printf("rank %d in %d: mynorm_square = %15.12f\n", myrank, nproc, mynorm_square);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+#endif
+    double inner_product = 0.0;
+    MPI_Allreduce(&my_inner_product, &inner_product, 1, MPI_DOUBLE, MPI_SUM, x->comm);
+    return inner_product;
+}
 #endif

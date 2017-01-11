@@ -5,6 +5,7 @@
 #include "matrix.h"
 #include "linear_algebra.h"
 #include "tool.h"
+#include "io.h"
 #include "cfsplit.h"
 #include "multigrid.h"
 #include "amg_param.h"
@@ -81,6 +82,7 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
 #endif
 
     Generate_strong_coupling_set(A, S, param);
+
 #if DETAIL_TIME > 3
     t2 = Get_time(); time_gen_S = t2 - t1; 
     printf("gen  S       : %f\n", time_gen_S);

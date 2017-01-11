@@ -915,6 +915,61 @@ void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype)
     fclose(file);
 }
 
+void Write_par_imatcsr_csr(par_imatcsr *A, const char *filename, int nametype)
+{
+    int  myrank;
+    MPI_Comm_rank(A->comm, &myrank);
+    char crank[128];
+    if(nametype == 1)
+	sprintf(crank, ".rank%02d-(%d,%d)", myrank, A->row_start[myrank], A->row_start[myrank+1]-1);
+    else
+	sprintf(crank, ".rank%02d", myrank);
+
+    char filename_par[128] = "";
+    strcat(filename_par, filename);
+    strcat(filename_par, crank);
+
+    FILE *file = fopen(filename_par,"w");
+    if(!file)
+    {
+        printf("\nError: Cannot open %s!\n", filename_par);
+	exit(0);
+    }
+    
+    int i, j;
+    
+    imatcsr *A_diag = A->diag;
+    imatcsr *A_offd = A->offd;
+    
+    fprintf(file, "%d\n", A_diag->nr);
+    fprintf(file, "%d\n", A->nc_global);
+    fprintf(file, "%d\n", A_diag->nn+A_offd->nn);
+    fprintf(file, "\n");
+    
+    int nr = A_diag->nr;
+    
+    for(i=0; i<=nr; i++) fprintf(file, "%d\n",      A_diag->ia[i] + A_offd->ia[i]);
+    fprintf(file, "\n");
+
+    for(i=0; i<nr; i++)
+    {
+	for(j=A_diag->ia[i]; j<A_diag->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A_diag->ja[j] + A->col_start[myrank]);
+	for(j=A_offd->ia[i]; j<A_offd->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A->map_offd_col_l2g[A_offd->ja[j]]);
+    }
+    fprintf(file, "\n");
+    for(i=0; i<nr; i++)
+    {
+	for(j=A_diag->ia[i]; j<A_diag->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A_diag->va[j]);
+	for(j=A_offd->ia[i]; j<A_offd->ia[i+1]; j++)
+	    fprintf(file, "%d\n", A_offd->va[j]);
+    }
+    
+    fclose(file);
+}
+
 void Print_par_dmatcsr(par_dmatcsr *A, int print_level)
 {
     MPI_Comm comm = A->comm;

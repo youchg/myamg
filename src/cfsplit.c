@@ -122,7 +122,7 @@ static int Generate_strong_coupling_set_negtive(dmatcsr *A, imatcsr *S, amg_para
 	{
 	    for(j=row_begin; j<row_end; j++)
 	    {
-		if(va[j]<=tol && ja[j]!=i)
+		if((va[j]-tol<EPS) && (ja[j]!=i))
 		    S->ja[j] = ja[j];
 	    }
 	}
@@ -290,7 +290,7 @@ int Pre_split(dmatcsr *A, imatcsr *S, int *dof)
 	    nFPT++;
 	    lambda_ST[i] = 0;
 	    for(k=S_ia[i]; k<S_ia[i+1]; k++)
-	        if(dof[S_ja[k]] < 1)//neither SPT nor FPT
+	        if((SPT!=dof[S_ja[k]]) && (FPT!=dof[S_ja[k]]))//neither SPT nor FPT
 		    lambda_ST[S_ja[k]]++;
 	}
 	else /* 如果上面两个if语句都不满足，说明i影响一些点，也有一些点影响i，UPT */
@@ -310,6 +310,7 @@ int Pre_split(dmatcsr *A, imatcsr *S, int *dof)
     List_init(&list, node, local_head, local_tail, lambda_ST, ndof);
     
 #if ASSERT_PRE
+    if(list.nlist != nUPT) printf("nUPT = %d, nlist = %d\n", nUPT, list.nlist);
     assert(list.nlist == nUPT);
 #endif
 

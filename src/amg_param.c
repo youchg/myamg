@@ -18,15 +18,15 @@ void Init_amg_param(amg_param *param)
     
     /*---------- linear solver cg ----------*/
     param->cg_max_iter    = 1000;
-    param->cg_tol         = 1e-16;
+    param->cg_tol         = 1e-14;
     
     /*---------- linear solver gs ----------*/
     param->gs_max_iter    = 1000;
-    param->gs_tol         = 1e-16;
+    param->gs_tol         = 1e-14;
 
     /*---------- linear solver amg cycle ----------*/
-    param->amgcycle_tol                 = 1e-16;
-    param->amgcycle_coarsest_tol        = 1e-18;
+    param->amgcycle_tol                 = 1e-14;
+    param->amgcycle_coarsest_tol        = 1e-16;
     param->amgcycle_mu                  = 1;
     param->amgcycle_pre_post_smooth     = 4;
     param->amgcycle_coarsest_level      = 0;
@@ -34,14 +34,14 @@ void Init_amg_param(amg_param *param)
     param->amgcycle_print_level         = 0;
 
     /*---------- amgsolver ----------*/
-    param->amgsolver_tol                     = 1e-16;
+    param->amgsolver_tol                     = 1e-14;
     param->amgsolver_max_cycle               = 100;
     param->amgsolver_max_convergence_factor  = 0.99;
     param->amgsolver_nmax_convergence_factor = 1;
     param->amgsolver_print_level             = 0;
 
     /*---------- amgpcg ----------*/
-    param->pcg_amg_tol         = 1e-16;
+    param->pcg_amg_tol         = 1e-14;
     param->pcg_amg_max_iter    = 100;
     param->pcg_amg_print_level = 0;
 
