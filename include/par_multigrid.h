@@ -1,9 +1,9 @@
 #ifndef __PAR_MULTIGRID_H__
 #define __PAR_MULTIGRID_H__
 
-#include "par_matrix_vector.h"
+#ifdef WITH_MPI
 
-#if WITH_MPI
+#include "par_matrix_vector.h"
 
 typedef struct PAR_MULTIGRID_
 {

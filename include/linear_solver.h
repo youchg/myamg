@@ -48,6 +48,8 @@ void Linear_solver_pcg_amg(multigrid *amg, int current_level,
                            double *resi, double *resi_norm, int *nit,
                            int *ncycle_amg_total);
 
+#ifdef WITH_UMFPACK
 void Linear_solver_direct(dmatcsr *A, double *b, double *x);
+#endif
 
 #endif

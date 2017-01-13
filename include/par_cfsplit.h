@@ -3,7 +3,7 @@
 
 #include "par_matrix_vector.h"
 
-#if WITH_MPI
+#ifdef WITH_MPI
 
 #include "matrix.h"
 #include "amg_param.h"

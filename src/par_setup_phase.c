@@ -1,6 +1,6 @@
-#include "par_setup_phase.h"
+#ifdef WITH_MPI
 
-#if WITH_MPI
+#include "par_setup_phase.h"
 
 #include <stdio.h>
 #include <stdlib.h>

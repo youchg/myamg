@@ -1,6 +1,6 @@
-#include "par_multigrid.h"
+#ifdef WITH_MPI
 
-#if WITH_MPI
+#include "par_multigrid.h"
 
 #include <stdio.h>
 #include <stdlib.h>

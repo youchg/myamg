@@ -1,6 +1,8 @@
 #ifndef __FASP_INTERFACE_H__
 #define __FASP_INTERFACE_H__
 
+#ifdef WITH_FASP
+
 #include "matrix.h"
 #include "multigrid.h"
 #include "fasp.h"
@@ -13,5 +15,7 @@ void Copy_dmatcsr_to_fasp  (dmatcsr *A, dCSRmat *B);
 void Copy_dmatcsr_from_fasp(dCSRmat *B, dmatcsr *A);
 
 void Write_dmatcsr_fasp(dmatcsr *A, const char *filename);
+
+#endif
 
 #endif

@@ -12,7 +12,10 @@
 #include "multigrid.h"
 #include "tool.h"
 #include "amg_param.h"
+
+#ifdef WITH_UMFPACK
 #include "umfpack.h"
+#endif
 
 void Get_residual(dmatcsr *A, double *b, double *x, 
 	          double *r, double *rnorm)
@@ -304,7 +307,7 @@ double Linear_solver_amgcycle(multigrid *amg, int current_level,
     if(current_level == coarsest_level)
     {
         //printf("multigrid solver accurate solve on level %d\n", fine_level);
-#if WITH_UMFPACK
+#ifdef WITH_UMFPACK
 	Linear_solver_direct(amg->A[coarsest_level], b, x);
 	Get_residual(amg->A[coarsest_level], b, x, NULL, &rn);
 #else
@@ -561,6 +564,7 @@ void Linear_solver_pcg_amg(multigrid *amg, int current_level,
     free(z);
 }
 
+#ifdef WITH_UMFPACK
 /* UMFPACK_A   ---- A   x = b
  * UMFPACK_At  ---- A^H x = b * UMFPACK_Aat ---- A^T x = b */
 void Linear_solver_direct(dmatcsr *A, double *b, double *x)
@@ -576,3 +580,4 @@ void Linear_solver_direct(dmatcsr *A, double *b, double *x)
     if(status) { printf("Error in umfpack_di_solve: %d!\n", status); exit(-1); }
     umfpack_di_free_numeric(&Numeric);
 }
+#endif

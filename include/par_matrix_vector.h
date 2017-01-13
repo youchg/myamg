@@ -1,9 +1,9 @@
 #ifndef __PAR_MATRIX_VECTOR_H__
 #define __PAR_MATRIX_VECTOR_H__
 
-#define WITH_MPI 1
+//#define WITH_MPI 1
 
-#if WITH_MPI
+#ifdef WITH_MPI
 
 #include "matrix.h"
 #include "mpi.h"

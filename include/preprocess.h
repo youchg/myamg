@@ -5,7 +5,7 @@
  * \brief dependency relation
  */
 #define WITH_BMP     1
-#define WITH_UMFPACK 1
+//#define WITH_UMFPACK 1
 
 /** 
  * \brief debugging macros
@@ -107,7 +107,7 @@
 /**
  * \brief linear solver type
  */
-#if WITH_UMFPACK
+#ifdef WITH_UMFPACK
 #define EXTERN_UMFPACK 0
 #endif
 #define CG 1

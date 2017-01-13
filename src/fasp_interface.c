@@ -1,3 +1,5 @@
+#ifdef WITH_UMFPACK
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "fasp_interface.h"
@@ -182,3 +184,5 @@ void Write_dmatcsr_fasp(dmatcsr *A, const char *filename)
     
     fclose(file);
 }
+
+#endif

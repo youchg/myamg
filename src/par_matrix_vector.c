@@ -1,6 +1,6 @@
-#include "par_matrix_vector.h"
+#ifdef WITH_MPI
 
-#if WITH_MPI
+#include "par_matrix_vector.h"
 
 #include "io.h"
 #include "mpi.h"

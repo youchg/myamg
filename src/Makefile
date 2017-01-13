@@ -1,6 +1,6 @@
 #################################################
 HOME = ..
-include $(HOME)/make.inc
+include $(HOME)/../make.inc
 #################################################
 OBJSOURCE = $(wildcard *.c)
 OBJLIB    = $(OBJSOURCE:%.c=%.o)

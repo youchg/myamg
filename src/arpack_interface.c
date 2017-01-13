@@ -27,9 +27,9 @@ extern void dneupd_(int *rvec, char *hownmy, int *select, double *dr, double *di
 //dndrv4
 //对复特征值，nev 可能会增加 1
 #define CG      1
-#define UMFPACK 2
 
-#if WITH_UMFPACK
+#ifdef WITH_UMFPACK
+#define UMFPACK 2
 #define ARPACK_LINEAR_SOLVER 2
 #else
 #define ARPACK_LINEAR_SOLVER 1

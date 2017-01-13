@@ -12,7 +12,10 @@
 #include "multigrid.h"
 #include "tool.h"
 #include "amg_param.h"
+
+#ifdef WITH_UMFPACK
 #include "umfpack.h"
+#endif
 
 
 double Linear_solver_shift_amgcycle(multigrid *amg, double shift, int current_level,
@@ -31,8 +34,8 @@ double Linear_solver_shift_amgcycle(multigrid *amg, double shift, int current_le
     {
         //printf("multigrid solver accurate solve on level %d\n", fine_level);
         dmatcsr *A = Sum_dmatcsr_mApnB(1.0, amg->A[coarsest_level], shift, amg->M[coarsest_level]);
-#if 1
-//#if WITH_UMFPACK
+//#if 1
+#ifdef WITH_UMFPACK
 	Linear_solver_direct(A, b, x);
 	Get_residual(A, b, x, NULL, &rn);
 #else

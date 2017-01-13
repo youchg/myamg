@@ -1,3 +1,5 @@
+#ifdef WITH_MPI
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,8 +8,6 @@
 #include <assert.h>
 
 #include "par_linear_solver.h"
-
-#if WITH_MPI
 
 #include "preprocess.h"
 #include "tool.h"

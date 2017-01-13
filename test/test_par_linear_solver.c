@@ -14,9 +14,9 @@
 #include "multigrid.h"
 #include "setup_phase.h"
 
+#include "par_matrix_vector.h"
 #include "par_linear_algebra.h"
 #include "par_linear_solver.h"
-#include "par_matrix_vector.h"
 #include "par_multigrid.h"
 #include "par_setup_phase.h"
 
@@ -45,15 +45,15 @@ int main(int argc, char* argv[])
     param.amgsolver_print_level = 1;
     //param.amgsolver_max_cycle = 1;
 
-    //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine7.m";
+    //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine8.m";
     //char file[256] = "../../dat/fem3d/hydrogen-stiff-4913.dat";
     //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine5.m";
-    char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine8.m";
+    //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine8.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine4.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine3.m";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_122500x122500.dat";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_6400x6400.dat";
-    //char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
+    char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
 
     int i;
 

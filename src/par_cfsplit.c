@@ -1,3 +1,5 @@
+#ifdef WITH_MPI
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -2762,4 +2764,5 @@ void Truncate_P(dmatcsr *P, amg_param param)
     P->va = (double*)realloc(P->va, new_nn*sizeof(double));
 }
 
+#endif
 #endif

@@ -3,7 +3,7 @@
 
 #include "par_matrix_vector.h"
 
-#if WITH_MPI
+#ifdef WITH_MPI
 
 void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y);
 

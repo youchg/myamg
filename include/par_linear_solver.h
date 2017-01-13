@@ -1,6 +1,8 @@
 #ifndef __PAR_LINEAR_SOLVER_H__
 #define __PAR_LINEAR_SOLVER_H__
 
+#ifdef WITH_MPI
+
 #include "preprocess.h"
 #include "amg_param.h"
 #include "matrix.h"
@@ -8,7 +10,6 @@
 #include "par_matrix_vector.h"
 #include "par_multigrid.h"
 
-#if WITH_MPI
 double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
                                   par_dvec *b,         par_dvec *x, 
                                   amg_param param);
