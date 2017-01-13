@@ -17,7 +17,6 @@
 #include "par_linear_algebra.h"
 #include "par_multigrid.h"
 
-#if 1
 double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
                                   par_dvec *b,         par_dvec *x, 
                                   amg_param param)
@@ -115,8 +114,6 @@ double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
         return rn;
     }
 }
-#endif
-
 
 void Get_par_residual(par_dmatcsr *A, par_dvec *b, par_dvec *x, par_dvec *r, double *rnorm)
 {
