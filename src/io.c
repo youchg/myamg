@@ -131,9 +131,13 @@ dmatcsr *Read_dmatcsr_part(const char *filename, int row_start, int row_end)
 
     int i = 0;
     int nr_global, nc_global, nn_global;
-    while(i<1 && EOF!=fscanf(file, "%d\n",   &nr_global)) i++; i = 0;
-    while(i<1 && EOF!=fscanf(file, "%d\n",   &nc_global)) i++; i = 0;
-    while(i<1 && EOF!=fscanf(file, "%d\n\n", &nn_global)) i++; i = 0;
+    //while(i<1 && EOF!=fscanf(file, "%d\n",   &nr_global)) i++; i = 0;
+    //while(i<1 && EOF!=fscanf(file, "%d\n",   &nc_global)) i++; i = 0;
+    //while(i<1 && EOF!=fscanf(file, "%d\n\n", &nn_global)) i++; i = 0;
+
+    fscanf(file, "%d\n",   &nr_global);
+    fscanf(file, "%d\n",   &nc_global);
+    fscanf(file, "%d\n\n", &nn_global);
 
     assert(row_start >= 0);
     assert(row_end   < nr_global);

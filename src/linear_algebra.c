@@ -714,7 +714,7 @@ double Get_dvec_2norm(double *x, int length)
 
 int Equal_dmatcsr_struct(dmatcsr *A, dmatcsr *M)
 {
-    if((A->nr == M->nr) && (A->nc == M->nc) && (A->nn == A->nn))
+    if((A->nr == M->nr) && (A->nc == M->nc) && (A->nn == M->nn))
     {
 	int nr = A->nr;
 	int nn = A->nn;

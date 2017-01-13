@@ -2,7 +2,8 @@
 HOME = ..
 include $(HOME)/../make.inc
 #################################################
-INC  = -I$(CINC)
+#INC  = -I$(CINC)
+INC = -I$(CINC) $(INCEXTERN)
 LIB  = $(LIBAMG)
 #################################################
 SOURCE  = $(wildcard *.c)
