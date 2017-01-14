@@ -36,3 +36,6 @@
 
 # output files
 *.output
+
+# make.inc
+#*.inc
