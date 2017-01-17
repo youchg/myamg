@@ -8,8 +8,8 @@
 #include "io.h"
 #include "tool.h"
 
-#include "linear_algebra.h"
 #include "linear_solver.h"
+#include "linear_algebra.h"
 #include "matrix.h"
 #include "multigrid.h"
 #include "setup_phase.h"
@@ -176,6 +176,7 @@ int main(int argc, char* argv[])
     /*-----------------------------------------*/
 #endif
 
+#if 1
     if(myrank == 0)
     {
 	dmatcsr *A_seq = Read_dmatcsr(file);
@@ -243,6 +244,7 @@ int main(int argc, char* argv[])
 
 	Free_dmatcsr(A_seq);
     }
+#endif
 
     Free_par_dvec(b);
     Free_par_dvec(x_ini);
