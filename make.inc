@@ -1,12 +1,11 @@
 #CC    = gcc
-#CC    = mpicc
-CC = /opt/mpi/mvapich2-1.6_gcc-4.6/bin/mpicc
+CC    = mpicc
 CFLAG = -g -W -Wall -Wextra -Wfloat-equal -O3 
 CFLAG += -DWITH_MPI
 
-SUITE_SPARSE = 
-BLAS         = 
-FASP         = 
+SUITE_SPARSE = /home/ycg/Software/SuiteSparse
+BLAS         = /home/ycg/Software/BLAS
+FASP         = /home/ycg/Software/faspsolver
 
 #ifeq ($(CC), mpicc)
 #    CFLAG += '-cc=gcc' -DWITH_MPI
@@ -29,10 +28,9 @@ version = 0.3
 
 ######################## include ############################
 ifdef SUITE_SPARSE
-    INC_UMFPACK = -I$(SuiteSparse)/UMFPACK/Include/ \
-                  -I$(SuiteSparse)/SuiteSparse_config/ \
-		  -IS(SuiteSparse)/AMD/Include
+    INC_UMFPACK = -I$(SUITE_SPARSE)/include 
 endif
+
 ifdef FASP 
     INC_FASP    = -I$(HOME)/../../faspsolver/base/include
 endif
@@ -42,13 +40,19 @@ INCEXTERN   = $(INC_UMFPACK) $(INC_FASP)
 LIB_ARPACK  = $(HOME)/../../ARPACK/libarpack_CentOS.a -lgfortran
 
 ifdef SUITE_SPARSE
-    LIB_UMFPACK = $(SuiteSparse)/UMFPACK/Lib/libumfpack.a \
-                  $(SuiteSparse)/AMD/Lib/libamd.a \
-		  $(SuiteSparse)/SuiteSparse_config/libsuitesparseconfig.a \
-		  $(SuiteSparse)/CHOLMOD/Lib/libcholmod.a \
-		  $(SuiteSparse)/COLAMD/Lib/libcolamd.a \
-		  $(BLAS)/blas_LINUX.a -lgfortran
+    LIB_UMFPACK = -lrt -Wl,-rpath=$(SUITE_SPARSE)/lib -L$(SUITE_SPARSE)/lib -lumfpack -lamd -lsuitesparseconfig -lccolamd -lcamd -lgfortran
+    LIB_UMFPACK2 = $(SUITE_SPARSE)/UMFPACK/Lib/libumfpack.a \
+                  $(SUITE_SPARSE)/AMD/Lib/libamd.a \
+		  $(SUITE_SPARSE)/SuiteSparse_config/libsuitesparseconfig.a \
+		  $(SUITE_SPARSE)/CAMD/Lib/libcamd.a \
+		  $(SUITE_SPARSE)/CHOLMOD/Lib/libcholmod.a \
+		  $(SUITE_SPARSE)/COLAMD/Lib/libcolamd.a \
+		  $(SUITE_SPARSE)/CCOLAMD/Lib/libccolamd.a \
+		  $(BLAS)/../lapack/liblapack.a \
+		  $(BLAS)/blas_LINUX.a \
+		  -lgfortran
 endif
+
 ifdef FASP 
     LIB_FASP    = $(FASP)/lib/libfasp.a -lgfortran
 endif
