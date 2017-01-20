@@ -25,12 +25,12 @@ extern int print_rank;
  *
  * 接收：直接接收即可。接收的数据按照邻居进程的顺序组成一个数组，即可直接与 offd 相乘。
  */
-
 void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 {
     int  myrank;
     MPI_Comm comm = A->comm;
     MPI_Comm_rank(comm, &myrank);
+    assert(MPI_COMM_NULL != comm);
 
     int i, j;
 
@@ -492,7 +492,6 @@ void Multi_par_dmatcsr_dmatcsr(par_dmatcsr *A, par_dmatcsr *B, par_dmatcsr *C)
     Free_dmatcsr(C_offd1);
 }
 
-
 /*
  * 将 diag 转置
  * 将offd按邻居进程转置，然后发送到邻居进程
@@ -866,4 +865,27 @@ double Multi_par_dvec_dvec(par_dvec *x, par_dvec *y)
     MPI_Allreduce(&my_inner_product, &inner_product, 1, MPI_DOUBLE, MPI_SUM, x->comm);
     return inner_product;
 }
+
+void Scale_par_dvec(par_dvec *x, double a)
+{
+    int i;
+    for(i=0; i<x->length; i++) x->value[i] *= a;
+}
+
+void Normalize_par_dvec(par_dvec *x)
+{
+    double my_max, max;
+    Max_abs_dvec(x->value, x->length, &my_max, NULL);
+    MPI_Allreduce(&my_max, &max, 1, MPI_DOUBLE, MPI_MAX, x->comm);
+    Scale_dvec(x->value, 1.0/max, x->length);
+    
+    if(fabs(max) < EPS)
+    {
+	int myrank;
+	MPI_Comm_rank(x->comm, &myrank);
+	if(0 == myrank)
+	    fprintf(stderr, "Warning in function \"NormalizeVec\": maximum of double vector [%18.15f] maybe equals to 0!\n", fabs(max));
+    }
+}
+
 #endif

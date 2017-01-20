@@ -18,6 +18,9 @@ void Sumself_par_dvec_axpby(par_dvec *x, double a, par_dvec *y, double b);
 void Copy_par_dvec(par_dvec *x, par_dvec *x_copy);
 
 double Multi_par_dvec_dvec(par_dvec *x, par_dvec *y);
+
+void Scale_par_dvec(par_dvec *x, double a);
+void Normalize_par_dvec(par_dvec *x);
 #endif
 
 #endif

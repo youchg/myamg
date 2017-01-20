@@ -81,8 +81,10 @@ double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
         //double tb_cycle = Get_time();
         int i;
         for( i=0; i<mu; i++ )
+	{
 	    if(MPI_COMM_NULL != pamg->comm[coarse_level])
 		Linear_solver_par_amgcycle(pamg, coarse_level, coarse_resi, coarse_x, param);
+	}
         //double te_cycle = Get_time();
         //if(print_level > 7) printf("recursive cycling time = %f, ", te_cycle-tb_cycle);
         

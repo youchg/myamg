@@ -13,6 +13,7 @@ ex_linear_solver:ex_linear_solver.exe
 ex_linear_solver_shift:ex_linear_solver_shift.exe
 
 ex_eigen_solver :ex_eigen_solver.exe
+ex_par_eigen_solver :ex_par_eigen_solver.exe
 
 ex1_poisson     :ex1_poisson.exe
 ex2_lshape      :ex2_lshape.exe

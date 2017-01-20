@@ -41,4 +41,10 @@ void Init_nev_argv(int argc, char* argv[], int *nev, int *nb, int *ne);
 
 void Print_amg(multigrid *amg);
 
+#ifdef WITH_MPI
+#include "par_matrix_vector.h"
+void Init_par_amg_param_argv(int argc, char* argv[], amg_param *param, par_dmatcsr **A, par_dmatcsr **M, MPI_Comm comm);
+void Input_par_amg_param(const char *filename, amg_param *param, par_dmatcsr **A, par_dmatcsr **M, MPI_Comm comm);
+#endif
+
 #endif

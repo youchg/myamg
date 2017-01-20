@@ -100,7 +100,6 @@ par_comm_info *Copy_par_comm_info (par_comm_info *info);
 par_dmatcsr *Copy_par_dmatcsr(par_dmatcsr *A);
 
 
-
 void Get_dmatcsr_global_size(const char *filename, int *nr, int *nc, int *nn);
 void Get_par_dmatcsr_row_start(int nr_global, int nprocs, int *row_start);
 void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max, dmatcsr *diag, dmatcsr *offd);
@@ -121,6 +120,10 @@ imatcsr *Init_empty_imatcsr(int nr);
 par_comm_info *Init_par_comm_info(void);
 
 void Remove_par_dmatcsr_extra_proc_neighbor(par_dmatcsr *A);
+
+void Get_dmatcsr_from_par_dmatcsr(par_dmatcsr *A, dmatcsr *A_seq, int proc_root);
+
+par_dmatcsr *Init_empty_par_dmatcsr();
 #endif
 
 #endif

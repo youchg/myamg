@@ -19,19 +19,20 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   0
+#define eigenpair_given   1
 #define direct_method_all 0
-#define direct_method_amg 1
+#define direct_method_amg 0
 #define amg_method        1
 
 #define precondition      0
 
 #define direct_nev        14
 
-#define nmax_correction   2
+#define nmax_correction   10
 
 #define tol_correction    1e-10
 
+int print_rank = -1; //useless
 int main(int argc, char* argv[])
 {
     int nev = 0;
@@ -175,6 +176,9 @@ int main(int argc, char* argv[])
     Print_amg(amg);
     printf("setup phase time: %f\n", te_setup-tb_setup);
 
+    Write_dmatcsr_csr(amg->A[amg->actual_level-1], "../output/AH.dat");
+    Write_dmatcsr_csr(amg->M[amg->actual_level-1], "../output/MH.dat");
+
     double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
     double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
 
@@ -192,12 +196,11 @@ int main(int argc, char* argv[])
     double te_direct_amg = Get_time();
     printf("direct eigen amg time: %f\n", te_direct_amg - tb_direct_amg);
 #endif
-    exit(-1);
 
     /* solve eigenvalue problem */
     double tb_correction_amg = Get_time();
     double  *eval_amg = (double*) calloc(nev, sizeof(double));
-    double **evec_amg        = (double**)malloc(nev* sizeof(double*));
+    double **evec_amg = (double**)malloc(nev* sizeof(double*));
     for(i=0; i<nev; i++) evec_amg[i] = (double*)calloc(A->nc, sizeof(double));
     double tb_amg, te_amg;
     printf("=============== 0 ===============\n");

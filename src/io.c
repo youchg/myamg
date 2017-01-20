@@ -1411,4 +1411,653 @@ void Print_amg(multigrid *amg)
     printf("=============================================================\n");
 }
 
+#ifdef WITH_MPI
+#include <mpi.h>
+#include "par_matrix_vector.h"
+
+void Init_par_amg_param_argv(int argc, char* argv[], amg_param *param, par_dmatcsr **A, par_dmatcsr **M, MPI_Comm comm)
+{
+    int index  = 1;
+    while(index < argc)
+    {
+	if(0 == strcmp(argv[index], "-ini"))
+	{
+	    index++;
+	    Input_par_amg_param(argv[index], param, A, M, comm);
+	    index++;
+	}
+	else
+	{
+	    break;
+	}
+    }
+}
+
+void Input_par_amg_param(const char *filename, amg_param *param, par_dmatcsr **A, par_dmatcsr **M, MPI_Comm comm)
+{
+    Init_amg_param(param);
+
+    int read   = TRUE;
+    int status = TRUE;
+    char buffer[512];
+    int    ivalue;
+    double dvalue;
+
+    FILE *file = fopen(filename,"r");
+    if(!file)
+    {
+        printf("\nError: Cannot open %s!\n", filename);
+	exit(-1);
+    }
+
+    while(read == TRUE)
+    {
+	status = fscanf(file, "%s", buffer);
+	if(EOF == status)
+	{
+	    read = FALSE;
+	    break;
+	}
+	if(('#'==buffer[0]) || ('%'==buffer[0]))
+	{
+	    if(!fgets(buffer, 512, file)) break;
+	    continue;
+	}
+
+	if(0 == strcmp(buffer, "Afile"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%s", buffer);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    if(NULL != A)
+	    {
+		*A = Read_par_dmatcsr(buffer, comm);
+	    }
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "Mfile"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%s", buffer);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    if(NULL != M)
+	    {
+		*M = Read_par_dmatcsr(buffer, comm);
+	    }
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "strong_connection_threshold"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->strong_connection_threshold = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "strong_diagonally_dominant_threshold"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->strong_diagonally_dominant_threshold = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "truncation_threshold"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->truncation_threshold = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "positive_connected"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->positive_connected = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "coarsening_type"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->coarsening_type = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "interpolation_type"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->interpolation_type = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "max_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->max_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "max_coarsest_dof"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->max_coarsest_dof = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "setup_phase_print_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->setup_phase_print_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "linear_solver_base_type"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->linear_solver_base_type = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "cg_max_iter"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->cg_max_iter = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "cg_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->cg_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "gs_max_iter"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->gs_max_iter = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "gs_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->gs_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_coarsest_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_coarsest_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_mu"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_mu = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_pre_post_smooth"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_pre_post_smooth = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_coarsest_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_coarsest_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_max_coarsest_smooth"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_max_coarsest_smooth = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgcycle_print_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgcycle_print_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgsolver_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgsolver_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgsolver_max_cycle"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgsolver_max_cycle = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgsolver_max_convergence_factor"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgsolver_max_convergence_factor = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgsolver_nmax_convergence_factor"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgsolver_nmax_convergence_factor = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgsolver_print_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgsolver_print_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "pcg_amg_tol"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%lf", &dvalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->pcg_amg_tol = dvalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "pcg_amg_max_iter"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->pcg_amg_max_iter = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "pcg_amg_print_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->pcg_amg_print_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgeigen_coarsest_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgeigen_coarsest_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgeigen_nouter_iter"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgeigen_nouter_iter = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else if(0 == strcmp(buffer, "amgeigen_print_level"))
+	{
+	    status = fscanf(file, "%s", buffer);
+	    if((EOF==status) || (0!=strcmp(buffer, "=")))
+	    {
+		read = FALSE;
+		break;
+	    }
+	    status = fscanf(file, "%d", &ivalue);
+	    if(EOF == status)
+	    {
+		read = FALSE;
+		break;
+	    }
+	    param->amgeigen_print_level = ivalue;
+	    if(!fgets(buffer, 512, file)) break;
+	}
+	else
+	{
+	    printf("Error in Input_amg_param: unknown input keyword \"%s\"!\n", buffer);
+	    read = FALSE;
+	    break;
+	}
+    }
+
+    fclose(file);
+}
+#endif
+
 #endif

@@ -31,9 +31,12 @@ par_multigrid *Init_par_amg(int max_level, int type)
     {
 	par_amg->comm[i]  = MPI_COMM_NULL;
 	par_amg->group[i] = MPI_GROUP_NULL;
-        par_amg->A[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
-        par_amg->P[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
-        par_amg->R[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+        par_amg->A[i] = Init_empty_par_dmatcsr();
+        par_amg->P[i] = Init_empty_par_dmatcsr();
+        par_amg->R[i] = Init_empty_par_dmatcsr();
+        //par_amg->A[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+        //par_amg->P[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+        //par_amg->R[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
     }
     
     switch( type )
@@ -41,7 +44,7 @@ par_multigrid *Init_par_amg(int max_level, int type)
         case 1: par_amg->M = NULL; break;
         case 2: par_amg->M = (par_dmatcsr**)malloc(max_level*sizeof(par_dmatcsr*));
                 for(i=0; i<max_level; i++)
-                    par_amg->M[i] = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+                    par_amg->M[i] = Init_empty_par_dmatcsr();
                 break;
         default: printf("Cannot initialize par-multi-grid: unknown type!\n");
     }
@@ -172,47 +175,55 @@ void Restrict_par_f2c(par_multigrid *pamg, int fine_level, int coarse_level, par
         par_dvec *work1 = Init_par_dvec_mv(pamg->A[fine_level]);
         par_dvec *work2 = Init_par_dvec_mv(pamg->A[fine_level]);
         par_dvec *tmp;
-        Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, work1);
+	if(MPI_COMM_NULL != pamg->comm[fine_level])
+	    Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, work1);
         for(i=fine_level+1; i<coarse_level-1; i++)
         {
-            Multi_par_dmatcsr_dvec(pamg->R[i], work1, work2);
+	    if(MPI_COMM_NULL != pamg->comm[i])
+		Multi_par_dmatcsr_dvec(pamg->R[i], work1, work2);
             tmp   = work1;
             work1 = work2;
             work2 = tmp;
         }
-        Multi_par_dmatcsr_dvec(pamg->R[coarse_level-1], work1, coarse_vec);
+	if(MPI_COMM_NULL != pamg->comm[coarse_level-1])
+	    Multi_par_dmatcsr_dvec(pamg->R[coarse_level-1], work1, coarse_vec);
         Free_par_dvec(work1);
         Free_par_dvec(work2);
     }
     else
     {
-        Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, coarse_vec);
+	if(MPI_COMM_NULL != pamg->comm[fine_level])
+	    Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, coarse_vec);
     }
 }
 
 void Prolong_par_c2f(par_multigrid *pamg, int coarse_level, int fine_level, par_dvec *coarse_vec, par_dvec *fine_vec)
 {
-    if( 1 < coarse_level-fine_level)
+    if(1 < coarse_level-fine_level)
     {
         int i;
         par_dvec *work1 = Init_par_dvec_mv(pamg->A[fine_level]);
         par_dvec *work2 = Init_par_dvec_mv(pamg->A[fine_level]);
         par_dvec *tmp;
-        Multi_par_dmatcsr_dvec(pamg->P[coarse_level-1], coarse_vec, work1);
+	if(MPI_COMM_NULL != pamg->comm[coarse_level-1])
+	    Multi_par_dmatcsr_dvec(pamg->P[coarse_level-1], coarse_vec, work1);
         for(i=coarse_level-2; i>fine_level; i--)
         {
-            Multi_par_dmatcsr_dvec(pamg->P[i], work1, work2);
+	    if(MPI_COMM_NULL != pamg->comm[i])
+		Multi_par_dmatcsr_dvec(pamg->P[i], work1, work2);
             tmp   = work1;
             work1 = work2;
             work2 = tmp;
         }
-        Multi_par_dmatcsr_dvec(pamg->P[fine_level], work1, fine_vec);
+	if(MPI_COMM_NULL != pamg->comm[fine_level])
+	    Multi_par_dmatcsr_dvec(pamg->P[fine_level], work1, fine_vec);
         Free_par_dvec(work1);
         Free_par_dvec(work2);
     }
     else
     {
-        Multi_par_dmatcsr_dvec(pamg->P[fine_level], coarse_vec, fine_vec);
+	if(MPI_COMM_NULL != pamg->comm[fine_level])
+	    Multi_par_dmatcsr_dvec(pamg->P[fine_level], coarse_vec, fine_vec);
     }
 }
 

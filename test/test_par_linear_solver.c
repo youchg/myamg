@@ -42,14 +42,15 @@ int main(int argc, char* argv[])
     param.cg_max_iter      = 20;
     param.amgsolver_tol    = 1e-08;
     param.max_coarsest_dof = 1;
+    param.max_level        = 200;
     param.amgsolver_print_level = 1;
     //param.amgsolver_max_cycle = 1;
 
     //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine8.m";
     //char file[256] = "../../dat/fem3d/hydrogen-stiff-4913.dat";
     //char file[256] = "../../dat/fem2d_poisson_square/gmg_A_refine5.m";
-    char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine5.m";
-    //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine4.m";
+    //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine5.m";
+    char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine4.m";
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine3.m";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_122500x122500.dat";
     //char file[256] = "../../dat/fdm2d9pt/A_fdm9pt_6400x6400.dat";
@@ -129,8 +130,23 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     //if(MPI_COMM_NULL != pamg->comm[pamg->actual_level-1]) Write_par_dmatcsr_csr(pamg->A[pamg->actual_level-1], "../output/AH.par.dat", 0);
-
     //if(MPI_COMM_NULL != pamg->comm[pamg->actual_level-1]) printf("rank %d: coarsest nr = %d\n", myrank, pamg->A[pamg->actual_level-1]->nr_global);
+    int nlevel         = pamg->actual_level_global;
+    int coarsest_level = nlevel - 1;
+    if(MPI_COMM_NULL != pamg->comm[coarsest_level])
+    {
+	dmatcsr *AH = (dmatcsr*)malloc(sizeof(dmatcsr));
+	Get_dmatcsr_from_par_dmatcsr(pamg->A[coarsest_level], AH, 0);
+	int myrank_coarsest;
+	MPI_Comm_rank(pamg->comm[coarsest_level], &myrank_coarsest);
+	if(0 == myrank_coarsest)
+	{
+	    Write_dmatcsr_csr(AH, "../output/AAAHHH.dat");
+	    Free_dmatcsr(AH);
+	}
+	else
+	    free(AH);
+    }
 
     double tb_amg = MPI_Wtime();
     Linear_solver_par_amg(pamg, 0, b, x_amg, param_myamg, &resi_norm_amg, &ncycle_amg);
@@ -227,6 +243,7 @@ int main(int argc, char* argv[])
 
 	//Write_dmatcsr_csr(amg_seq->A[3], "../output/A3.dat");
 	//Write_dmatcsr_csr(amg_seq->A[2], "../output/A2.dat");
+	Write_dmatcsr_csr(amg_seq->A[amg_seq->actual_level-1], "../output/AH.dat");
 
 	double tb_amg = Get_time();
 	Linear_solver_amg(amg_seq, 0, b_seq, x_amg_seq, param_myamg_seq, &resi_norm_amg_seq, &ncycle_amg_seq);

@@ -1,13 +1,14 @@
 #ifdef WITH_MPI
 
-#include "par_matrix_vector.h"
-
-#include "io.h"
-#include "mpi.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include "mpi.h"
+
+#include "par_matrix_vector.h"
+#include "io.h"
+#include "tool.h"
 
 extern int  print_rank;
 
@@ -224,6 +225,57 @@ void Separate_dmatcsr_to_diag_offd(dmatcsr *A, int col_idx_min, int col_idx_max,
     offd->va = va_offd;
 
     free(isdiag);
+}
+
+dmatcsr *Combine_diag_offd_to_dmatcsr(par_dmatcsr *A)
+{
+    int myrank;
+    MPI_Comm_rank(A->comm, &myrank);
+
+    int nr = A->diag->nr;
+    int nc = A->nc_global;
+    int nn = A->diag->nn + A->offd->nn;
+    int    *ia = (int*)   malloc((nr+1) * sizeof(int));
+    int    *ja = (int*)   malloc( nn    * sizeof(int));
+    double *va = (double*)malloc( nn    * sizeof(double));
+
+    int i, j;
+    for(i=0; i<=nr; i++)
+	ia[i] = A->diag->ia[i] + A->offd->ia[i];
+
+    int *col_start        = A->col_start;
+    int *map_offd_col_l2g = A->map_offd_col_l2g;
+
+    int index = 0;
+    for(i=0; i<nr; i++)
+    {
+	for(j=A->diag->ia[i]; j<A->diag->ia[i+1]; j++)
+	{
+	    ja[index] = A->diag->ja[j] + col_start[myrank];
+	    va[index] = A->diag->va[j];
+	    index++;
+	}
+	for(j=A->offd->ia[i]; j<A->offd->ia[i+1]; j++)
+	{
+	    ja[index] = map_offd_col_l2g[A->offd->ja[j]];
+	    va[index] = A->offd->va[j];
+	    index++;
+	}
+    }
+    assert(index == nn);
+
+    for(i=0; i<nr; i++)
+        Quick_ascend_sort_ivec_dvec(ja, va, ia[i], ia[i+1]-1);
+
+    dmatcsr *B = (dmatcsr*)malloc(sizeof(dmatcsr));
+    B->nr = nr;
+    B->nc = nc;
+    B->nn = nn;
+    B->ia = ia;
+    B->ja = ja;
+    B->va = va;
+
+    return B;
 }
 
 void Get_par_dmatcsr_diag(dmatcsr *diag, int col_idx_min, int col_idx_max)
@@ -859,7 +911,6 @@ par_dmatcsr *Copy_par_dmatcsr(par_dmatcsr *A)
     return A_copy;
 }
 
-
 void Write_par_dmatcsr_csr(par_dmatcsr *A, const char *filename, int nametype)
 {
     int  myrank;
@@ -1123,5 +1174,89 @@ void Remove_par_dmatcsr_extra_proc_neighbor(par_dmatcsr *A)
     free(proc_neighbor_flag); proc_neighbor_flag = NULL;
 }
 
+void Get_dmatcsr_from_par_dmatcsr(par_dmatcsr *A, dmatcsr *A_seq, int proc_root)
+{
+    int myrank, nproc;
+    MPI_Comm comm= A->comm;
+    MPI_Comm_size(comm, &nproc);
+    MPI_Comm_rank(comm, &myrank);
 
+    int i;
+
+    dmatcsr *A_seq_part = Combine_diag_offd_to_dmatcsr(A);
+    for(i=0; i<A_seq_part->nr; i++) A_seq_part->ia[i] = A_seq_part->ia[i+1] - A_seq_part->ia[i];
+
+    int *nn_all = NULL;
+    if(myrank == proc_root) nn_all = (int*)calloc(nproc, sizeof(int));
+    MPI_Gather(&A_seq_part->nn, 1, MPI_INT, nn_all, 1, MPI_INT, proc_root, comm);
+
+    if(myrank == proc_root)
+    {
+	int A_seq_nn = 0;
+	for(i=0; i<nproc; i++) A_seq_nn += nn_all[i];
+
+	A_seq->nr = A->nr_global;
+	A_seq->nc = A->nc_global;
+	A_seq->nn = A_seq_nn;
+	A_seq->ia = (int*)   calloc(A_seq->nr+1, sizeof(int));
+	A_seq->ja = (int*)   calloc(A_seq->nn,   sizeof(int));
+	A_seq->va = (double*)calloc(A_seq->nn,   sizeof(double));
+    }
+
+    int *nr_gatherv        = NULL;
+    int *nr_gatherv_displs = NULL;
+    int *nn_gatherv        = NULL;
+    int *nn_gatherv_displs = NULL;
+    if(myrank == proc_root)
+    {
+	nr_gatherv        = (int*)calloc(nproc, sizeof(int));
+	nr_gatherv_displs = (int*)calloc(nproc, sizeof(int));
+	nn_gatherv        = (int*)calloc(nproc, sizeof(int));
+	nn_gatherv_displs = (int*)calloc(nproc, sizeof(int));
+	for(i=0; i<nproc; i++)
+	{
+	    nr_gatherv[i] = A->row_start[i+1] - A->row_start[i];
+	    nn_gatherv[i] = nn_all[i];
+	}
+	for(i=0; i<nproc-1; i++)
+	{
+	    nr_gatherv_displs[i+1] = nr_gatherv_displs[i] + nr_gatherv[i];
+	    nn_gatherv_displs[i+1] = nn_gatherv_displs[i] + nn_gatherv[i];
+	}
+    }
+
+    MPI_Gatherv(A_seq_part->ia, A_seq_part->nr, MPI_INT,    A_seq->ia, nr_gatherv, nr_gatherv_displs, MPI_INT,    proc_root, comm);
+    MPI_Gatherv(A_seq_part->ja, A_seq_part->nn, MPI_INT,    A_seq->ja, nn_gatherv, nn_gatherv_displs, MPI_INT,    proc_root, comm);
+    MPI_Gatherv(A_seq_part->va, A_seq_part->nn, MPI_DOUBLE, A_seq->va, nn_gatherv, nn_gatherv_displs, MPI_DOUBLE, proc_root, comm);
+
+    if(myrank == proc_root)
+    {
+	for(i=A_seq->nr; i>0; i--) A_seq->ia[i]  = A_seq->ia[i-1];
+	A_seq->ia[0] = 0;
+	for(i=0; i<A_seq->nr; i++) A_seq->ia[i+1] += A_seq->ia[i];
+
+	free(nn_gatherv_displs); nn_gatherv_displs = NULL;
+	free(nn_gatherv);        nn_gatherv        = NULL;
+	free(nr_gatherv_displs); nr_gatherv_displs = NULL;
+	free(nr_gatherv);        nr_gatherv        = NULL;
+	free(nn_all);            nn_all = NULL;
+    }
+    Free_dmatcsr(A_seq_part);
+}
+
+par_dmatcsr *Init_empty_par_dmatcsr()
+{
+    par_dmatcsr *A = (par_dmatcsr*)malloc(sizeof(par_dmatcsr));
+    A->diag = NULL;
+    A->offd = NULL;
+    A->nr_global = 0;
+    A->nc_global = 0;
+    A->nn_global = 0;
+    A->map_offd_col_l2g = NULL;
+    A->row_start = NULL;
+    A->col_start = NULL;
+    A->comm = MPI_COMM_NULL;
+    A->comm_info = NULL;
+    return A;
+}
 #endif
