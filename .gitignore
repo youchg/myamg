@@ -39,3 +39,6 @@
 
 # make.inc
 #*.inc
+
+# Mac XCode dSYM
+*.dSYM

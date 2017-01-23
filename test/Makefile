@@ -21,6 +21,7 @@ test_par_multigrid:test_par_multigrid.exe
 test_par_cg:test_par_cg.exe
 test_par_linear_solver:test_par_linear_solver.exe
 test_par_linear_solver:test_par_linear_solver.exe
+test_arpack:test_arpack.exe
 
 all: $(TARGETS)
 #################################################

@@ -105,9 +105,13 @@ void Eigen_solver_par_amg(par_multigrid *pamg,
 
 	    if(myrank_coarsest == proc_root_coarsest)
 	    {
+		Write_dmatcsr_csr(AH, "../output/AH.dat");
+		Write_dmatcsr_csr(MH, "../output/MH.dat");
+
 		evec_seq_coarsest = (double**)malloc(nev * sizeof(double*));
 		for(i=0; i<nev; i++) evec_seq_coarsest[i] = (double*)calloc(AH->nr, sizeof(double));
 
+		for(i=0; i<nev; i++) eval[i] = 0.0;
 		t3 = MPI_Wtime();
 		Eigen_solver_arpack_dn(AH, MH, nev, eval, evec_seq_coarsest);
 		for(j=0; j<nev; j++) Normalize_dvec(evec_seq_coarsest[j], AH->nr);
@@ -119,6 +123,16 @@ void Eigen_solver_par_amg(par_multigrid *pamg,
 		    printf("========= coarest eigenvalue on level %d =========\n", coarsest_level);
 		    for(i=0; i<nev; i++) printf("%d: %15.12f\n", i, eval[i]);
 		    printf("==================================================\n");
+		}
+		if(1)
+		{
+		    char re_file[256] = "../output/re.txt";
+		    FILE *ffile = My_fopen(re_file, "w");
+		    fprintf(ffile, "Solving eigenvalue problem by Eigen_solver_arpack_dn() on the coarest level...\n");
+		    fprintf(ffile, "========= coarest eigenvalue on level %d =========\n", coarsest_level);
+		    for(i=0; i<nev; i++) fprintf(ffile, "%d: %15.12f\n", i, eval[i]);
+		    fprintf(ffile, "==================================================\n");
+		    fclose(ffile);
 		}
 
 		Alarge = Expand_dmatcsr_struct(AH, nev);
@@ -423,8 +437,10 @@ static double Correction_par_expand_matrix_RAhV_VTAhV(par_multigrid *pamg, int c
 
     for(j=0; j<n; j++) {free(VTAhV[j]); VTAhV[j] = NULL;} free(VTAhV); VTAhV = NULL;
 
-    for(j=0; j<n; j++) Free_par_dvec(RAhV[j]); free(RAhV); RAhV = NULL;
-    for(j=0; j<n; j++) Free_par_dvec( AhV[j]); free( AhV);  AhV = NULL;
+    for(j=0; j<n; j++) Free_par_dvec(RAhV[j]); 
+    free(RAhV); RAhV = NULL;
+    for(j=0; j<n; j++) Free_par_dvec( AhV[j]); 
+    free( AhV);  AhV = NULL;
 
     return MPI_Wtime() - tb;
 }

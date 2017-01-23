@@ -1,6 +1,6 @@
 #################################################
 HOME = ..
-include $(HOME)/make.inc
+include $(HOME)/../make.inc
 #################################################
 INC  = -I$(CINC) $(INCEXTERN)
 LIB  = $(LIBAMG)
