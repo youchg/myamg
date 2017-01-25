@@ -16,16 +16,16 @@
 #include "par_multigrid.h"
 #include "par_setup_phase.h"
 
-#define eigenpair_given   0
+#define eigenpair_given   1
 #define direct_method_all 0
-#define direct_method_amg 1
+#define direct_method_amg 0
 #define amg_method        1
 
 #define precondition      0
 
 #define direct_nev        14
 
-#define nmax_correction   2
+#define nmax_correction   5
 
 #define tol_correction    1e-10
 
@@ -146,6 +146,11 @@ int main(int argc, char* argv[])
 	printf("correction %2d error: %20.15f\n", 0, total_error[0]);
 	printf("***************************************************\n");
 	printf("***************************************************\n");
+	printf("\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 	printf("begin to correct eigenpair on the finest level...\n");
     }
     
@@ -156,9 +161,9 @@ int main(int argc, char* argv[])
 	    printf("=============== %d ===============\n", i);
 	int j;
 	tb_amg = MPI_Wtime();
-        param_eigen.amgsolver_max_cycle  = 10;
-        param_eigen.pcg_amg_max_iter     = 10;
-        param_eigen.amgeigen_nouter_iter = 4;
+        param_eigen.amgsolver_max_cycle  = 2;
+        param_eigen.pcg_amg_max_iter     = 2;
+        param_eigen.amgeigen_nouter_iter = 1;
 	Eigen_solver_par_amg(pamg, nev, eval_amg, evec_amg, 0, 1, param_eigen);
 	te_amg = MPI_Wtime();
 	if(myrank == print_rank)
@@ -171,13 +176,14 @@ int main(int argc, char* argv[])
 	for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_given[j]);
 #endif
 	if(myrank == print_rank)
+	{
 	    printf("correction %2d error: %20.15f\n", i, total_error[i]);
+	    printf("==================================\n\n");
+	}
 	ncorrection++;
 	if(total_error[i] < tol_correction) break;
     }
     double te_correction_amg = MPI_Wtime();
-    if(myrank == print_rank)
-	printf("==================================\n");
 
     if(myrank == print_rank)
     {

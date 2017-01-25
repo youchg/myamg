@@ -92,7 +92,7 @@ double Linear_solver_par_amgcycle(par_multigrid *pamg, int current_level,
         //printf("multigrid solver post-smoothing on level %d\n", fine_level);
         par_dvec *fine_x = Init_par_dvec_mv(A);
         Prolong_par_c2f(pamg, coarse_level, current_level, coarse_x, fine_x);
-        Sumself_par_dvec_axpby(fine_x, 1.0, x, 1.0);
+        Sumself_par_dvec_axpby_length(fine_x, 1.0, x, 1.0, A->diag->nr);
         if(print_level > 7)
         {
             Get_par_residual(A, b, x, NULL, &rn);
@@ -121,7 +121,7 @@ void Get_par_residual(par_dmatcsr *A, par_dvec *b, par_dvec *x, par_dvec *r, dou
 {
     par_dvec *resi = (NULL==r) ? Init_par_dvec_mv(A) : r;
     Multi_par_dmatcsr_dvec(A, x, resi);
-    Sumself_par_dvec_axpby(b, 1.0, resi, -1.0);
+    Sumself_par_dvec_axpby_length(b, 1.0, resi, -1.0, A->diag->nr);
     if(NULL != rnorm) *rnorm = Get_par_dvec_2norm(resi);
     if(NULL == r)     Free_par_dvec(resi);
 }
@@ -167,12 +167,12 @@ void Linear_solver_par_cg(par_dmatcsr *A, par_dvec *b, par_dvec *x, double tol, 
 	else
 	{
 	    beta = rnorm*rnorm / (tmp*tmp);
-	    Sumself_par_dvec_axpby(r, 1.0, p, beta);
+	    Sumself_par_dvec_axpby_length(r, 1.0, p, beta, A->diag->nr);
 	}
         Multi_par_dmatcsr_dvec(A, p, Ap);
         alpha = rnorm*rnorm / Multi_par_dvec_dvec(p, Ap);
-        Sumself_par_dvec_axpby(p,   alpha, x, 1.0);
-        Sumself_par_dvec_axpby(Ap, -alpha, r, 1.0);
+        Sumself_par_dvec_axpby_length(p,   alpha, x, 1.0, A->diag->nr);
+        Sumself_par_dvec_axpby_length(Ap, -alpha, r, 1.0, A->diag->nr);
 	tmp = rnorm;
         rnorm = Get_par_dvec_2norm(r);
         if((print_level>0) && (myrank==0)) printf("cg iter = %3d, rnorm = %18.15f, ratio = %f\n", nit, rnorm, rnorm/tmp);

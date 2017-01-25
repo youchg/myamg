@@ -98,8 +98,10 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 		     comm, MPI_STATUS_IGNORE);
     }
 
-    Multi_dmatcsr_dvec     (A->diag, x->value, y->value);
-    Multi_dmatcsr_dvec_hold(A->offd, x_recv,   y->value);
+    if(A->diag->nc > 0)
+	Multi_dmatcsr_dvec     (A->diag, x->value, y->value);
+    if(A->offd->nc > 0)
+	Multi_dmatcsr_dvec_hold(A->offd, x_recv,   y->value);
 
     for(i=0; i<nproc_neighbor; i++)
     {
@@ -832,6 +834,12 @@ void Sumself_par_dvec_axpby(par_dvec *x, double a, par_dvec *y, double b)
     for(i=0; i<x->length; i++) y->value[i] = a*x->value[i] + b*y->value[i];
 }
 
+void Sumself_par_dvec_axpby_length(par_dvec *x, double a, par_dvec *y, double b, int length)
+{
+    int i;
+    for(i=0; i<length; i++) y->value[i] = a*x->value[i] + b*y->value[i];
+}
+
 void Copy_par_dvec(par_dvec *x, par_dvec *x_copy)
 {
     assert(x->length_global == x_copy->length_global);
@@ -866,6 +874,14 @@ double Multi_par_dvec_dvec(par_dvec *x, par_dvec *y)
     return inner_product;
 }
 
+double Multi_par_dvec_dvec_length(par_dvec *x, par_dvec *y, int length, MPI_Comm comm)
+{
+    double my_inner_product = Multi_dvec_dvec(x->value, y->value, length);
+    double inner_product = 0.0;
+    MPI_Allreduce(&my_inner_product, &inner_product, 1, MPI_DOUBLE, MPI_SUM, comm);
+    return inner_product;
+}
+
 void Scale_par_dvec(par_dvec *x, double a)
 {
     int i;
@@ -888,4 +904,49 @@ void Normalize_par_dvec(par_dvec *x)
     }
 }
 
+void Normalize_par_dvec_length(par_dvec *x, int length, MPI_Comm comm)
+{
+    double my_max, max, max1, max2;
+    Max_abs_dvec(x->value, length, &my_max, NULL);
+#if 0
+    int myrank;
+    MPI_Comm_rank(comm, &myrank);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    if(myrank == 0) printf("mymax = %18.15f\n", my_max);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    if(myrank == 1) printf("mymax = %18.15f\n", my_max);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    if(myrank == 2) printf("mymax = %18.15f\n", my_max);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    if(myrank == 3) printf("mymax = %18.15f\n", my_max);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+#endif
+    MPI_Allreduce(&my_max, &max1, 1, MPI_DOUBLE, MPI_MAX, comm);
+    MPI_Allreduce(&my_max, &max2, 1, MPI_DOUBLE, MPI_MIN, comm);
+    max = (MABS(max1)-MABS(max2)<EPS)? max2: max1;
+    Scale_dvec(x->value, 1.0/max, length);
+    
+    if(fabs(max) < EPS)
+    {
+	int myrank;
+	MPI_Comm_rank(comm, &myrank);
+	if(0 == myrank)
+	    fprintf(stderr, "Warning in function \"Normalize_par_dvec_length()\": maximum of double vector [%18.15f] maybe equals to 0!\n", fabs(max));
+    }
+}
 #endif

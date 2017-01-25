@@ -170,7 +170,12 @@ void Eigen_solver_amg(multigrid *amg,
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Alarge, matA, AH, amg, i, coarsest_level, nev, dvec_amg); 
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Mlarge, matM, MH, amg, i, coarsest_level, nev, dvec_amg); 
 #endif
-	    //Write_dmatcsr_csr(Mlarge, "../output/Mlarge.dat");
+	    if(i==0)
+	    {
+	    Write_dmatcsr_csr(Alarge, "../output/Alarge_seq.dat");
+	    Write_dmatcsr_csr(Mlarge, "../output/Mlarge_seq.dat");
+	    //exit(-1);
+	    }
    
 	    if(status) printf("Solving corrected eigenvalue problem...\n");
 	    t3 = Get_time(); 
@@ -181,7 +186,8 @@ void Eigen_solver_amg(multigrid *amg,
 	    t4 = Get_time();
 	    eigen_time += t4-t3;
 	    
-	    if(status)
+	    //if(status)
+	    if(1)
 	    {
 	        printf("========= corrected eigenvalue on level %d ===========\n", i);
                 for(j=0; j<nev; j++) printf("%15.12f\n", eval[j]);
@@ -250,9 +256,13 @@ static double Correction_solve_linear(multigrid *amg, int current_level, int n, 
 	t1 = Get_time();
 	memset(rhs, 0, M->nr*sizeof(double));
 	Multi_dmatcsr_dvec(M, dvec[j], rhs);
+	//int print_j = 1;
+	//if(j == print_j) Print_dvec(rhs, M->nr);
 #if 0
 	Scale_dvec(rhs, dval[j], M->nr);
 #else
+	//if(j == print_j) Print_dvec(dvec[j], M->nr);
+	//if(j == print_j) Print_dvec(&dval[j], 1);
 	if(MABS(dval[j]) > EPS) Scale_dvec(dvec[j], 1.0/dval[j], M->nr);
 #endif
 
@@ -295,6 +305,7 @@ static double Correction_get_new_evec(multigrid *amg, int current_level, int coa
 	ProlongCoarse2Fine(amg, coarsest_level, current_level, evec_expand[j], PV[j]);
 	for(k=0; k<n; k++) Sumself_dvec_axpby(V[k], evec_expand[j][nrc+k], evec[j], 1.0, nr);
 	Sumself_dvec_axpby(PV[j], 1.0, evec[j], 1.0, nr);
+	//if(j == 1) Print_dvec(evec[j], nr);
         Normalize_dvec(evec[j], nr);
     }
     for(j=0; j<n; j++) { free(PV[j]); PV[j] = NULL; } free(PV); PV = NULL;

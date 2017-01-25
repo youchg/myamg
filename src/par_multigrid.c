@@ -169,6 +169,7 @@ void Free_par_multigrid(par_multigrid *par_amg)
 
 void Restrict_par_f2c(par_multigrid *pamg, int fine_level, int coarse_level, par_dvec *fine_vec, par_dvec *coarse_vec)
 {
+    //printf("coarse level = %d, fine_level = %d\n", coarse_level, fine_level);
     if(1 < coarse_level-fine_level)
     {
         int i;
@@ -192,8 +193,10 @@ void Restrict_par_f2c(par_multigrid *pamg, int fine_level, int coarse_level, par
     }
     else
     {
+	//printf("*************************************\n");
 	if(MPI_COMM_NULL != pamg->comm[fine_level])
 	    Multi_par_dmatcsr_dvec(pamg->R[fine_level], fine_vec, coarse_vec);
+	//printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
     }
 }
 

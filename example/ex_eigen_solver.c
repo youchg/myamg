@@ -19,8 +19,8 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   1
-#define direct_method_all 0
+#define eigenpair_given   0
+#define direct_method_all 1
 #define direct_method_amg 0
 #define amg_method        1
 
@@ -28,7 +28,7 @@
 
 #define direct_nev        14
 
-#define nmax_correction   10
+#define nmax_correction   5
 
 #define tol_correction    1e-10
 
@@ -233,20 +233,20 @@ int main(int argc, char* argv[])
 	printf("=============== %d ===============\n", i);
 	int j;
 	tb_amg = Get_time();
-        param_eigen.amgsolver_max_cycle  = 10;
-        param_eigen.pcg_amg_max_iter     = 10;
-        param_eigen.amgeigen_nouter_iter = 4;
-	//Eigen_solver_amg(amg, nev, eval_amg, evec_amg, 0, 1, param_eigen);
+        param_eigen.amgsolver_max_cycle  = 2;
+        param_eigen.pcg_amg_max_iter     = 2;
+        param_eigen.amgeigen_nouter_iter = 1;
+	Eigen_solver_amg(amg, nev, eval_amg, evec_amg, 0, 1, param_eigen);
 	//int is_shift = 1;
-	double *shift = (double*)calloc(nev, sizeof(double));
-	shift[0] = - 9.54;
-	shift[1] = -10.06;
-	shift[2] = -10.06;
+	//double *shift = (double*)calloc(nev, sizeof(double));
+	//shift[0] = - 9.54;
+	//shift[1] = -10.06;
+	//shift[2] = -10.06;
 	//Eigen_solver_shift_amg(amg, nev, eval_amg, evec_amg, 0, 1, is_shift, shift, param_eigen);
 	//Eigen_solver_amg_multistep(amg, nev, eval_amg, evec_amg, 0, 1, 2, param_eigen);
-	Eigen_solver_amg_multistep2(amg, nev, eval_amg, evec_amg, param_eigen);
+	//Eigen_solver_amg_multistep2(amg, nev, eval_amg, evec_amg, param_eigen);
+	//free(shift);
 	te_amg = Get_time();
-	free(shift);
 	for(j=0; j<nev; j++) printf("%2d: %20.15f\n", j, eval_amg[j]);
 	printf("correction %2d time : %20.15f\n", i, te_amg - tb_amg);
         corre_time[i] = te_amg - tb_amg;

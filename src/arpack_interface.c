@@ -103,7 +103,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
 
         if(iparam[6] == 3)
         {
-            printf("ido = %d\n", ido);
+            //printf("ido = %d\n", ido);
             switch(ido)
             {	
 	        case -1:
