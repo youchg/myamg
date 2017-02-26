@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <malloc.h>
 
 #include "tool.h"
 #include "preprocess.h"
@@ -11,6 +12,12 @@ double Get_time()
     struct timeval tv;
     if(gettimeofday(&tv, NULL) == -1) printf("Error in Get_time()!\n");
     return tv.tv_sec + (double)tv.tv_usec/1000000;
+}
+
+double Get_memory()
+{
+    struct mallinfo mi = mallinfo();
+    return (double)(mi.usmblks+mi.uordblks)/1024.0/1024.0;
 }
 
 void Insertion_ascend_sort_dvec(double *a, int left, int right)

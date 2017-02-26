@@ -5,8 +5,8 @@
 %Afile = ../dat/xufei/stiff_matrix-10.dat
 %Mfile = ../dat/xufei/mass_matrix-10.dat
 
-Afile = ../../dat/fem2d_poisson_lshape/gmg_A_refine4.m
-Mfile = ../../dat/fem2d_poisson_lshape/gmg_M_refine4.m
+Afile = ../../dat/fem2d_poisson_lshape/gmg_A_refine9.m
+Mfile = ../../dat/fem2d_poisson_lshape/gmg_M_refine9.m
 
 #32
 %Afile = ../../dat/fem2d_poisson_square/gmg_A_refine4.m

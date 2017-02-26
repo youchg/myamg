@@ -42,3 +42,6 @@
 
 # Mac XCode dSYM
 *.dSYM
+
+# result
+*.txt

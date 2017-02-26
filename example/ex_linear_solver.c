@@ -19,6 +19,7 @@
 #define amgcycle  1
 #define amgpcg    0
 
+int print_rank = 0;
 /* cg convergence factor 
    \sigma = \frac{\sqrt(k)-1}{\sqrt(k)+1}
    k = \frac{\lamda_{max}}{\lambda_{min}}

@@ -28,6 +28,8 @@ ex8_lshape_delaunay_adapt:ex8_lshape_delaunay_adapt.exe
 ex9_hydrogen      :ex9_hydrogen.exe
 ex10_fem3dlaplace :ex10_fem3dlaplace.exe
 ex11_fem3dhydrogen:ex11_fem3dhydrogen.exe
+
+ex12_fem2d_anisotropic:ex12_fem2d_anisotropic.exe
 #################################################
 clean:
 	@clear; clear;
