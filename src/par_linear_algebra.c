@@ -27,6 +27,11 @@ extern int print_rank;
  */
 void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 {
+    int is_print_time = 0;
+    double mpi_t0, mpi_time, compute_t0, compute_time;
+    compute_time = 0.0;
+    mpi_time = 0.0;
+    compute_t0 = MPI_Wtime();
     int  myrank;
     MPI_Comm comm = A->comm;
     MPI_Comm_rank(comm, &myrank);
@@ -40,18 +45,25 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
     int **index_recv   = A->comm_info->index_col;
     int *map_offd_col_l2g = A->map_offd_col_l2g;
 
+    compute_time += MPI_Wtime() - compute_t0;
+
+    mpi_t0 = MPI_Wtime();
     int *nsend = (int*)malloc(nproc_neighbor * sizeof(int));
     for(i=0; i<nproc_neighbor; i++)
     {
 	MPI_Sendrecv(nindex_recv+i, 1, MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
 		     nsend+i,       1, MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 		     comm, MPI_STATUS_IGNORE);
-	//printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], nindex_recv[i], nsend[i]);
+	printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], 1, 1);
     }
+    mpi_time += MPI_Wtime() - mpi_t0;
 
+    compute_time = 0.0;
     int **col_send = (int**)malloc(nproc_neighbor * sizeof(int*));
     for(i=0; i<nproc_neighbor; i++) col_send[i] = (int*)malloc(nsend[i] * sizeof(int));
+    compute_time += MPI_Wtime() - compute_t0;
 
+    mpi_t0 = MPI_Wtime();
     for(i=0; i<nproc_neighbor; i++)
     {
 	int offset;
@@ -60,10 +72,12 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 	MPI_Sendrecv(map_offd_col_l2g+offset, nindex_recv[i], MPI_INT, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
 		     col_send[i],             nsend[i],       MPI_INT, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 		     comm, MPI_STATUS_IGNORE);
-	//printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], nindex_recv[i], nsend[i]);
+	printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], nindex_recv[i], nsend[i]);
     }
+    mpi_time += MPI_Wtime() - mpi_t0;
     //MPI_Barrier(comm);
 
+    compute_time = 0.0;
     for(i=0; i<nproc_neighbor; i++)
     {
 	for(j=0; j<nsend[i]; j++)
@@ -86,17 +100,22 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
     int *start_recv = (int*)calloc(nproc_neighbor+1, sizeof(int));
     for(i=1; i<=nproc_neighbor; i++) start_recv[i]  = nindex_recv[i-1];
     for(i=1; i<=nproc_neighbor; i++) start_recv[i] +=  start_recv[i-1];
+    compute_time += MPI_Wtime() - compute_t0;
 
+    mpi_t0 = MPI_Wtime();
     //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
     //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
     //             MPI_Comm comm,MPI_Status *status)
     for(i=0; i<nproc_neighbor; i++)
     {
-	//printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], nsend[i], start_recv[i+1]-start_recv[i]);
-	MPI_Sendrecv(x_send[i],            nsend[i],                MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
+	printf("%d to %d: send = %d, recv = %d\n", myrank, proc_neighbor[i], nsend[i], start_recv[i+1]-start_recv[i]);
+	MPI_Sendrecv(x_send[i],            nsend[i],                      MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
 		     x_recv+start_recv[i], start_recv[i+1]-start_recv[i], MPI_DOUBLE, proc_neighbor[i], proc_neighbor[i]+myrank*1000, 
 		     comm, MPI_STATUS_IGNORE);
     }
+    mpi_time += MPI_Wtime() - mpi_t0;
+
+    compute_time = 0.0;
 
     if(A->diag->nc > 0)
 	Multi_dmatcsr_dvec     (A->diag, x->value, y->value);
@@ -118,6 +137,9 @@ void Multi_par_dmatcsr_dvec(par_dmatcsr *A, par_dvec *x, par_dvec *y)
 	x_send[i] = NULL;
     }
     free(x_send); x_send = NULL;
+    compute_time += MPI_Wtime() - compute_t0;
+
+    if(is_print_time) printf("A*x time: (compute, communicate) = (%f, %f)\n", compute_time, mpi_time);
 }
 
 double Get_par_dvec_2norm(par_dvec *x)

@@ -1,7 +1,7 @@
 #---------- read file ----------#
 #Afile = ../dat/fem2d_poisson_lshape_delaunay/A_Delaunay_lshape.dmatcsr
-%Afile = ../../dat/fem2d_poisson_square/gmg_A_refine11.m
-Afile = ../../dat/fem2d_anisotropic/regular/gmg_A_refine10.dat
+Afile = ../../dat/fem2d_poisson_square/gmg_A_refine10.m
+%Afile = ../../dat/fem2d_anisotropic/regular/gmg_A_refine10.dat
 %Afile = ../../dat/fem3d/laplace3d-stiff-2146689-uniform.dat
 
 #---------- amg setup phase ----------#

@@ -268,6 +268,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
 
 void Eigen_solver_arpack_dn_amg(multigrid *amg, int level, int nev, double *eval, double **evec, amg_param param)
 {
+    //printf("Begin ARPACK: memory use (MB): %f\n", Get_memory());
     dmatcsr *A = amg->A[level];
     dmatcsr *M = amg->M[level];
 
@@ -285,7 +286,7 @@ void Eigen_solver_arpack_dn_amg(multigrid *amg, int level, int nev, double *eval
     char   *which    = "LM";//LM or SM
     double  tol      = 0.0;
     double *resid    = calloc(n, sizeof(double)); 
-    int     ncv      = 4*nev_local;//Arnoldi vectors number
+    int     ncv      = 3*nev_local;//Arnoldi vectors number
     if(ncv > n) ncv  = n;
     int     ldv      = n;
     double *v        = calloc(ldv*ncv, sizeof(double));
@@ -436,6 +437,8 @@ void Eigen_solver_arpack_dn_amg(multigrid *amg, int level, int nev, double *eval
         }
     }   
 
+    //printf("End ARPACK memory use (MB): %f\n", Get_memory());
+
     free(workev);
     free(di);
     free(dr);
@@ -448,6 +451,8 @@ void Eigen_solver_arpack_dn_amg(multigrid *amg, int level, int nev, double *eval
     free(v);
     free(resid);
     
+    //printf("Free ARPACK memory use (MB): %f\n", Get_memory());
+
     Insertion_ascend_sort_dvec_dvecvec(eval, evec, 0, nev-1);
 }
 

@@ -172,6 +172,15 @@ int Coarsen(dmatcsr *A, dmatcsr *M, dmatcsr *P, dmatcsr *R, dmatcsr *AH, dmatcsr
     printf("gen  AH      : %f\n", time_gen_AH);
 #endif    
 
+    dmatcsr *AH2 = malloc(sizeof(dmatcsr));
+    dmatcsr *RA  = malloc(sizeof(dmatcsr));
+    double tabcb2 = Get_time();
+    Multi_dmatcsr_dmatcsr(R, A, RA);
+    Multi_dmatcsr_dmatcsr(RA, P, AH2);
+    double tabce2 = Get_time();
+    printf("gen AH2     :%f\n", tabce2-tabcb2);
+
+
     if(NULL != M) Multi_dmatcsr_dmatcsr_dmatcsr(R, M, P, MH);
 
     Free_imatcsr(S);

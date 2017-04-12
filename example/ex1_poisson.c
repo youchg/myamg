@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include <unistd.h>
 #include "preprocess.h"
 #include "io.h"
 #include "linear_algebra.h"
@@ -16,10 +17,11 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   1
+#define eigenpair_given   0
 #define direct_method_all 0
-#define direct_method_amg 0
 #define amg_method        1
+#define direct_method_amg 1
+#define amg_eigen         1
 
 #define precondition      0
 
@@ -32,6 +34,7 @@
 
 #define tol_correction    1e-09
 
+int print_rank = 0;
 int main(int argc, char* argv[])
 {
     int nev = 0;
@@ -131,7 +134,6 @@ int main(int argc, char* argv[])
 #endif
 
 #if amg_method
-
     multigrid *amg = Build_amg(A, M, param.max_level);
     double tb_setup = Get_time();
     Setup_phase(amg, param);
@@ -139,10 +141,13 @@ int main(int argc, char* argv[])
     Print_amg(amg);
     printf("setup phase time: %f\n", te_setup-tb_setup);
 
-    double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
-    double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
-
 #if !eigenpair_given && direct_method_amg
+    printf("Direct eigen solver begin: memory use (MB): %f\n", Get_memory());
+
+    printf("\n\nsleep...\n");
+    sleep(100);
+    printf("start...\n\n");
+
     double   tb_direct_amg          = Get_time();
     double  *eval_direct_amg = (double*) calloc(direct_nev, sizeof(double));
     double **evec_direct_amg = (double**)malloc(direct_nev* sizeof(double*));
@@ -155,7 +160,18 @@ int main(int argc, char* argv[])
     printf("===================================================\n");
     double te_direct_amg = Get_time();
     printf("direct eigen amg time: %f\n", te_direct_amg - tb_direct_amg);
+
+    printf("Direct eigen solver end: memory use (MB): %f\n", Get_memory());
 #endif
+    printf("\n\nsleep...\n");
+    sleep(100);
+    printf("start...\n\n");
+
+#if amg_eigen
+    printf("AMG eigen solver begin: memory use (MB): %f\n", Get_memory());
+
+    double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
+    double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
 
     /* solve eigenvalue problem */
     double tb_correction_amg = Get_time();
@@ -195,6 +211,10 @@ int main(int argc, char* argv[])
     int ncorrection = 0;
     for(i=1; i<nmax_correction; i++)
     {
+    printf("\n\nsleep...\n");
+    sleep(10);
+    printf("start...\n\n");
+
 	printf("=============== %d ===============\n", i);
 	tb_amg = Get_time();
         param_eigen.amgsolver_max_cycle  = 1;
@@ -235,11 +255,14 @@ int main(int argc, char* argv[])
     printf("******** whole correction time: %f *********\n", te_correction_amg - tb_correction_amg);
     printf("***************************************************\n");
 
+    printf("AMG eigen solver end: memory use (MB): %f\n", Get_memory());
+
     free(corre_time);
     free(total_error);
     for(i=0; i<nev; i++) free(evec_amg[i]);
     free(evec_amg);
     free(eval_amg);
+#endif
 
 #if !eigenpair_given && direct_method_amg
     for(i=0; i<direct_nev; i++) free(evec_direct_amg[i]);

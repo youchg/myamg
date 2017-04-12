@@ -17,7 +17,22 @@ double Get_time()
 double Get_memory()
 {
     struct mallinfo mi = mallinfo();
-    return (double)(mi.usmblks+mi.uordblks)/1024.0/1024.0;
+
+#if 0
+    printf("++++++++++++++++++++++++++++++++++++++++++\n");
+    printf("Total non-mmapped bytes (arena):       %d\n", mi.arena);
+    printf("# of free chunks (ordblks):            %d\n", mi.ordblks);
+    printf("# of free fastbin blocks (smblks):     %d\n", mi.smblks);
+    printf("# of mapped regions (hblks):           %d\n", mi.hblks);
+    printf("Bytes in mapped regions (hblkhd):      %d\n", mi.hblkhd);
+    printf("Max. total allocated space (usmblks):  %d\n", mi.usmblks);
+    printf("Free bytes held in fastbins (fsmblks): %d\n", mi.fsmblks);
+    printf("Total allocated space (uordblks):      %d\n", mi.uordblks);
+    printf("Total free space (fordblks):           %d\n", mi.fordblks);
+    printf("Topmost releasable block (keepcost):   %d\n", mi.keepcost);
+#endif
+
+    return (double)(mi.usmblks+mi.uordblks+mi.hblkhd)/1024.0/1024.0;
 }
 
 void Insertion_ascend_sort_dvec(double *a, int left, int right)

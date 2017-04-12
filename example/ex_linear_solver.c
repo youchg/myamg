@@ -17,7 +17,7 @@
 #define umfpack   0
 #define fasp      0
 #define amgcycle  1
-#define amgpcg    0
+#define amgpcg    1
 
 int print_rank = 0;
 /* cg convergence factor 
