@@ -45,7 +45,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
     char   *which    = "LM";//LM or SM
     double  tol      = 0.0;
     double *resid    = calloc(n, sizeof(double)); 
-    int     ncv      = 4*nev_local;//Arnoldi vectors number
+    int     ncv      = 3*nev_local;//Arnoldi vectors number
     if(ncv > n) ncv  = n;
     int     ldv      = n;
     double *v        = calloc(ldv*ncv, sizeof(double));
@@ -90,16 +90,20 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
     //=================================================================
     // start reverse communivation process
     //=================================================================
+    //int niter = 0;
     do
     {
         dnaupd_(&ido, &bmat, &n, which, &nev_local, &tol, resid, 
 	        &ncv, v, &ldv, iparam, ipntr, workd, workl,
 	        &lworkl, &info);
-	/*
-        printf("info = %d\n", info);
+#if 0
+	printf("niter        = %d\n", niter);
+        printf("info         = %d\n", info);
         printf("Arnoldi size = %d\n",iparam[4]);
-        printf("iparam[6] = %d\n", iparam[6]);
-	*/
+        printf("iparam[6]    = %d\n", iparam[6]);
+	printf("\n");
+	niter++;
+#endif
 
         if(iparam[6] == 3)
         {
@@ -118,7 +122,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
 		    //printf("DNEigenSolver (ido = -1): residual norm = %18.16f, niter = %d\n", rnorm, ncgit);
 #else
 		    Linear_solver_direct(A, rhs, workd+ipntr[1]-1);
-		    //printf("DNEigenSolver (ido =  -1)\n");
+		    //printf("ido = %d, norm = %15.12f\n", ido, Get_dvec_2norm(workd+ipntr[1]-1, A->nr));
 #endif
 	            break;
 	        case 1:
@@ -131,7 +135,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
 		    //printf("DNEigenSolver (ido =  1): residual norm = %18.16f, niter = %d\n", rnorm, ncgit);
 #else
 		    Linear_solver_direct(A, workd+ipntr[2]-1, workd+ipntr[1]-1);
-		    //printf("DNEigenSolver (ido =  1)\n");
+		    //printf("ido = %d, norm = %15.12f\n", ido, Get_dvec_2norm(workd+ipntr[1]-1, A->nr));
 #endif
                     break;
                 case 2:
@@ -140,7 +144,7 @@ void Eigen_solver_arpack_dn(dmatcsr *A, dmatcsr *M, int nev, double *eval, doubl
 	            matrix vector multiplication routine
 	            [input: workd(ipntr(1))] [output: workd(ipntr(2))]. */
 	            Multi_dmatcsr_dvec(M, workd+ipntr[0]-1, workd+ipntr[1]-1);
-		    //printf("DNEigenSolver (ido =  2)\n");
+		    //printf("ido = %d, norm = %15.12f\n", ido, Get_dvec_2norm(workd+ipntr[1]-1, A->nr));
 	            break;
 	        default:
 	            break;
