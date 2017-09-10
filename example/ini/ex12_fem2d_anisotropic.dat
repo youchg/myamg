@@ -1,17 +1,16 @@
 #---------- read file ----------#
-
-#32
-Afile = ../../dat/fem2d_poisson_square/gmg_A_refine11.m
-Mfile = ../../dat/fem2d_poisson_square/gmg_M_refine11.m
+Afile = ../../dat/fem2d_anisotropic/regular/gmg_A_refine10.dat
+Mfile = ../../dat/fem2d_anisotropic/regular/gmg_M_refine10.dat
 
 #---------- amg setup phase ----------#
 strong_connection_threshold          = 0.25
 strong_diagonally_dominant_threshold = 0.1
 truncation_threshold                 = 0.2
+coarsening_type                      = 1 %1:STD_RS  2:CLJP
 positive_connected                   = 0 %1:YES 0:NO
 interpolation_type                   = 1 %1:DIR 2:STD
 max_level                            = 100
-max_coarsest_dof                     = 100
+max_coarsest_dof                     = 200
 setup_phase_print_level              = 0
 
 #---------- linear solver base type ----------#

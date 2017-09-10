@@ -4,7 +4,6 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
-#include <unistd.h>
 #include "preprocess.h"
 #include "io.h"
 #include "linear_algebra.h"
@@ -17,17 +16,16 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   0
+#define eigenpair_given   1
 #define direct_method_all 0
+#define direct_method_amg 0
 #define amg_method        1
-#define direct_method_amg 1
-#define amg_eigen         1
 
 #define precondition      0
 
-#define direct_nev        32
+#define direct_nev        30
 
-#define nmax_correction   20
+#define nmax_correction   10
 //#define nev               13
 //#define error_nev_b       0
 //#define error_nev_e       nev-1
@@ -41,7 +39,6 @@ int main(int argc, char* argv[])
     int error_nev_b = 0;
     int error_nev_e = 0;
     Init_nev_argv(argc, argv, &nev, &error_nev_b, &error_nev_e);
-    printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
 
 #if !(eigenpair_given || direct_method_all || direct_method_amg)
 #undef  direct_method_amg
@@ -50,11 +47,34 @@ int main(int argc, char* argv[])
     printf("!! Using direct_method_amg by force. !!\n");
     printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 #endif
-    if(argc < 2)
+    if(argc < 3)
     {
-	printf("too few arguments!\n");
-	exit(0);
+	printf("Too few arguments, exit...\n");
+	exit(-1);
     }
+    else if(argc == 3)
+    {
+	printf("Too few arguments, set nev = %d, nb = %d, ne = %d\n", direct_nev, 0, direct_nev-1);
+	nev = direct_nev;
+	error_nev_b  = 0;
+	error_nev_e  = direct_nev - 1;
+    }
+    else if(argc == 5)
+    {
+	printf("Too few arguments, nev = %d, set nb = %d, ne = %d\n", nev, 0, nev-1);
+	error_nev_b  = 0;
+	error_nev_e  = nev - 1;
+    }
+    else if(argc != 9)
+    {
+	printf("Unresolved command line parameters, exit...\n");
+	exit(-1);
+    }
+    printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
+    assert(nev > 0);
+    assert(error_nev_b >= 0);
+    assert(error_nev_e >= error_nev_b);
+
     double tb_init = Get_time();
     dmatcsr *A;
     dmatcsr *M;
@@ -84,38 +104,36 @@ int main(int argc, char* argv[])
     int i;
 #if eigenpair_given
     double eval_given[direct_nev] = {
-	 19.739351152446577,
-	 49.348398772994052,
-	 49.348426661655587,
-	 78.957543954641395,
-	 98.696926072478092,
-	 98.696926072787591,
-	128.306055963593963,
-	128.306290898228610,
-	167.784999753374791,
-	167.785014924843836,
-	177.654996436879685,
-	197.394417265854258,
-	197.394417273111628,
-	246.743050204326266,
-	246.743972243036808,
-	256.612819086151660,
-	256.612819086431614,
-	286.222396771513957,
-	286.222479299660563,
-	315.832405282174534,
-	335.571880346205262,
-	335.571880413890710,
-	365.180563509384399,
-	365.180577155566198,
-	394.790444748240247,
-	394.790444752357189,
-	404.659991649028711,
-	404.662532642826989,
-	444.140187371669356,
-	444.140438372226185,
-	493.488516543021433,
-	493.488516544614299,
+              9.879490171023392,
+              9.909145574026168,
+              9.958571555839656,
+              10.027768581680268,
+              10.116737302857356,
+              10.225478556778612,
+              10.353993366958187,
+              10.502282943027344,
+              10.670348680744478,
+              10.858192162008496,
+              11.065815154874436,
+              11.293219613568914,
+              11.540407678508849,
+              11.807381676323246,
+              12.094144119870791,
+              12.400697708268778,
+              12.727045326913437,
+              13.073190047510552,
+              13.439135128103159,
+              13.824884013100146,
+              14.230440333311567,
+              14.655807905980248,
+              15.100990734818833,
+              15.565993010046363,
+              16.050819108427437,
+              16.555473593314815,
+              17.079961214688453,
+              17.624286909203146,
+              18.188455800232660,
+              18.772473197918526,
 			 };
 #endif
 
@@ -134,6 +152,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if amg_method
+
     multigrid *amg = Build_amg(A, M, param.max_level);
     double tb_setup = Get_time();
     Setup_phase(amg, param);
@@ -141,13 +160,10 @@ int main(int argc, char* argv[])
     Print_amg(amg);
     printf("setup phase time: %f\n", te_setup-tb_setup);
 
+    double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
+    double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
+
 #if !eigenpair_given && direct_method_amg
-    printf("Direct eigen solver begin: memory use (MB): %f\n", Get_memory());
-
-    printf("\n\nsleep...\n");
-    sleep(100);
-    printf("start...\n\n");
-
     double   tb_direct_amg          = Get_time();
     double  *eval_direct_amg = (double*) calloc(direct_nev, sizeof(double));
     double **evec_direct_amg = (double**)malloc(direct_nev* sizeof(double*));
@@ -160,18 +176,7 @@ int main(int argc, char* argv[])
     printf("===================================================\n");
     double te_direct_amg = Get_time();
     printf("direct eigen amg time: %f\n", te_direct_amg - tb_direct_amg);
-
-    printf("Direct eigen solver end: memory use (MB): %f\n", Get_memory());
 #endif
-    printf("\n\nsleep...\n");
-    sleep(100);
-    printf("start...\n\n");
-
-#if amg_eigen
-    printf("AMG eigen solver begin: memory use (MB): %f\n", Get_memory());
-
-    double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
-    double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
 
     /* solve eigenvalue problem */
     double tb_correction_amg = Get_time();
@@ -211,10 +216,6 @@ int main(int argc, char* argv[])
     int ncorrection = 0;
     for(i=1; i<nmax_correction; i++)
     {
-    printf("\n\nsleep...\n");
-    sleep(10);
-    printf("start...\n\n");
-
 	printf("=============== %d ===============\n", i);
 	tb_amg = Get_time();
         param_eigen.amgsolver_max_cycle  = 1;
@@ -255,14 +256,11 @@ int main(int argc, char* argv[])
     printf("******** whole correction time: %f *********\n", te_correction_amg - tb_correction_amg);
     printf("***************************************************\n");
 
-    printf("AMG eigen solver end: memory use (MB): %f\n", Get_memory());
-
     free(corre_time);
     free(total_error);
     for(i=0; i<nev; i++) free(evec_amg[i]);
     free(evec_amg);
     free(eval_amg);
-#endif
 
 #if !eigenpair_given && direct_method_amg
     for(i=0; i<direct_nev; i++) free(evec_direct_amg[i]);

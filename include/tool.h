@@ -2,6 +2,7 @@
 #define __TOOL_H__
 
 double Get_time();
+double Get_memory();
 
 void Insertion_ascend_sort_dvec(double *a, int left, int right);
 void Insertion_ascend_sort_ivec(int    *a, int left, int right);

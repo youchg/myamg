@@ -12,14 +12,16 @@
 int print_rank = 0;
 int main()
 {
-    char Afile[256] = "../output/AH.dat";
-    char Mfile[256] = "../output/MH.dat";
+    //char Afile[256] = "../output/AH.dat";
+    //char Mfile[256] = "../output/MH.dat";
+    char Afile[256] = "../../../FEM_SOFT/dat/gmg_A_refine6.dat";
+    char Mfile[256] = "../../../FEM_SOFT/dat/gmg_M_refine6.dat";
     dmatcsr *A = Read_dmatcsr(Afile);
     dmatcsr *M = Read_dmatcsr(Mfile);
     Print_dmatcsr(A);
 
     int i;
-    int nev = 6;
+    int nev = 3;
     double  *eval = (double *)calloc(nev,  sizeof(double));
     double **evec = (double**)malloc(nev * sizeof(double*));
     for(i=0; i<nev; i++)
