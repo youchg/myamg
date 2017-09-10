@@ -71,3 +71,4 @@ ARFLAG = curs
 
 VALGRIND = valgrind
 VALGRINDFLAG = #--tool=memcheck --leak-check=full -v --track-origins=yes --show-reachable=yes --read-var-info=yes
+
