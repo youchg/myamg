@@ -25,7 +25,7 @@
 
 #define direct_nev        30
 
-#define nmax_correction   10
+#define nmax_correction   20
 //#define nev               13
 //#define error_nev_b       0
 //#define error_nev_e       nev-1

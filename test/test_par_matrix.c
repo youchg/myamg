@@ -139,8 +139,8 @@ int main(int argc, char *argv[])
     //MPI_Get_processor_name(myname, &myname_len);
 
     //char file[256] = "../../dat/fem2d_poisson_lshape/gmg_A_refine6.m";
-    //char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
-    char file[256] = "../../dat/fdm2d9pt/9pt3hh/matrix_A_9pt3hh_04_350_raw.dat";
+    char file[256] = "../dat/fdm2d9pt/A_fdm9pt_49x49.dat";
+    //char file[256] = "../../dat/fdm2d9pt/9pt3hh/matrix_A_9pt3hh_04_350_raw.dat";
     par_dmatcsr *A = Read_par_dmatcsr(file, MPI_COMM_WORLD);
 
     par_dvec *x = Init_par_dvec_mv(A);

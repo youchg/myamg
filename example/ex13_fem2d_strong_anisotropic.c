@@ -16,17 +16,17 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   0
+#define eigenpair_given   1
 #define direct_method_all 0
-#define direct_method_amg 1
+#define direct_method_amg 0
 #define amg_method        1
 
 #define precondition      0
 
-#define direct_nev        13//32
+#define direct_nev        30
 
 #define nmax_correction   20
-//#define nev               23
+//#define nev               13
 //#define error_nev_b       0
 //#define error_nev_e       nev-1
 
@@ -39,7 +39,6 @@ int main(int argc, char* argv[])
     int error_nev_b = 0;
     int error_nev_e = 0;
     Init_nev_argv(argc, argv, &nev, &error_nev_b, &error_nev_e);
-    printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
 
 #if !(eigenpair_given || direct_method_all || direct_method_amg)
 #undef  direct_method_amg
@@ -48,11 +47,34 @@ int main(int argc, char* argv[])
     printf("!! Using direct_method_amg by force. !!\n");
     printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 #endif
-    if(argc < 2)
+    if(argc < 3)
     {
-	printf("too few arguments!\n");
-	exit(0);
+	printf("Too few arguments, exit...\n");
+	exit(-1);
     }
+    else if(argc == 3)
+    {
+	printf("Too few arguments, set nev = %d, nb = %d, ne = %d\n", direct_nev, 0, direct_nev-1);
+	nev = direct_nev;
+	error_nev_b  = 0;
+	error_nev_e  = direct_nev - 1;
+    }
+    else if(argc == 5)
+    {
+	printf("Too few arguments, nev = %d, set nb = %d, ne = %d\n", nev, 0, nev-1);
+	error_nev_b  = 0;
+	error_nev_e  = nev - 1;
+    }
+    else if(argc != 9)
+    {
+	printf("Unresolved command line parameters, exit...\n");
+	exit(-1);
+    }
+    printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
+    assert(nev > 0);
+    assert(error_nev_b >= 0);
+    assert(error_nev_e >= error_nev_b);
+
     double tb_init = Get_time();
     dmatcsr *A;
     dmatcsr *M;
@@ -82,39 +104,36 @@ int main(int argc, char* argv[])
     int i;
 #if eigenpair_given
     double eval_given[direct_nev] = {
-
-	  9.639941155614530,
-	 15.197263483672709,
-	 19.739241101397241,
-	 29.521547405588866,
-	 31.913260946733118,
-	 41.475038397040180,
-	 44.948620466830491,
-	 49.348223505840721,
-	 49.348260690989306,
-	 56.710430199775971,
-	 65.376836108842241,
-	 71.058737347746145,
-	 71.573224743772840,
-	 78.957521785881866,
-	 89.303876010710553,
-	 92.307544461658438,
-         97.381716831929808,
-         98.696886742288171,
-	 98.696886759985802,
-	101.607253663911848,
-	112.370098767105745,
-	115.521192152497733,
-	128.306474249980454,
-	128.306787514516458,
-	130.120554212801750,
-	130.258335573047447,
-	142.454982350337076,
-	151.122078379763281,
-	154.468967509814064,
-	162.199975600831635,
-	164.718195737342995,
-	164.855778344224177,
+	            5.567636362502870, 
+	            6.450275478656486,
+	            7.133449569066343,
+	            7.805653861754617,
+		    8.437714879048290,
+		    9.073708666780679,
+		    9.694558679214822,
+		   10.323221000756817,
+		   10.946226316489714,
+		   11.578538113884502,
+		   12.209959940792181,
+		   12.851373263735441,
+		   13.494677839558323,
+		   14.148317005625978,
+		   14.805630470017009,
+		   15.473457016348881,
+		   16.146178226559016,
+		   16.829504824188092,
+		   17.518602607650379,
+		   18.218350388322200,
+		   18.924522729212772,
+		   19.641362350947009,
+		   20.365128157582124,
+		   21.099562606661241,
+		   21.297344444147694,
+		   21.841317726052672,
+		   22.593733594323009,
+		   23.353786603403247,
+		   23.409302262446829,
+		   24.124487245224749,
 			 };
 #endif
 
@@ -174,16 +193,21 @@ int main(int argc, char* argv[])
     Eigen_solver_amg_nested(amg, nev, eval_amg, evec_amg, param_eigen);
     te_amg = Get_time();
     printf("* 0 * approximate eigenvalue: \n");/* show the result */
-    for(i=0; i<nev; i++) printf("%2d: %20.15f\n", i, eval_amg[i]);
-    printf("correction %2d time : %20.15f\n", 0, te_amg - tb_amg);
     corre_time[0] = te_amg - tb_amg;
 #if eigenpair_given 
+    //for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_given[i]) / eval_given[i];
     for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_given[i]);
+    for(i=0; i<nev; i++) printf("%2d: %20.15f %20.15f\n", i, eval_amg[i], fabs(eval_amg[i]-eval_given[i]));
 #elif direct_method_all
+    //for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_direct_all[i]) / eval_direct_all[i];
     for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_direct_all[i]);
+    for(i=0; i<nev; i++) printf("%2d: %20.15f %20.15f\n", i, eval_amg[i], fabs(eval_amg[i]-eval_direct_all[i]));
 #elif direct_method_amg
+    //for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_direct_amg[i]) / eval_direct_amg[i];
     for(i=error_nev_b; i<=error_nev_e; i++) total_error[0] += fabs(eval_amg[i] - eval_direct_amg[i]);
+    for(i=0; i<nev; i++) printf("%2d: %20.15f %20.15f\n", i, eval_amg[i], fabs(eval_amg[i]-eval_direct_amg[i]));
 #endif
+    printf("correction %2d time : %20.15f\n", 0, te_amg - tb_amg);
     printf("correction %2d error: %20.15f\n", 0, total_error[0]);
     printf("***************************************************\n");
     printf("***************************************************\n");
@@ -199,16 +223,21 @@ int main(int argc, char* argv[])
 	Eigen_solver_amg(amg, nev, eval_amg, evec_amg, 0, 1, param_eigen);
 	int j;
 	te_amg = Get_time();
-	for(j=0; j<nev; j++) printf("%2d: %20.15f\n", j, eval_amg[j]);
-	printf("correction %2d time : %20.15f\n", i, te_amg - tb_amg);
         corre_time[i] = te_amg - tb_amg;
 #if eigenpair_given
+	//for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_given[j])      / eval_given[j];
 	for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_given[j]);
+	for(j=0; j<nev; j++) printf("%2d: %20.15f %20.15f\n", j, eval_amg[j], fabs(eval_amg[j]-eval_given[j]));
 #elif direct_method_all
+	//for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_direct_all[j]) / eval_direct_all[j];
 	for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_direct_all[j]);
+	for(j=0; j<nev; j++) printf("%2d: %20.15f %20.15f\n", j, eval_amg[j], fabs(eval_amg[j]-eval_direct_all[j]));
 #elif direct_method_amg
+	//for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_direct_amg[j]) / eval_direct_amg[j];
 	for(j=error_nev_b; j<=error_nev_e; j++) total_error[i] += fabs(eval_amg[j] - eval_direct_amg[j]);
+	for(j=0; j<nev; j++) printf("%2d: %20.15f %20.15f\n", j, eval_amg[j], fabs(eval_amg[j]-eval_direct_amg[j]));
 #endif
+	printf("correction %2d time : %20.15f\n", i, corre_time[i]);
 	printf("correction %2d error: %20.15f\n", i, total_error[i]);
 	ncorrection++;
 	if(total_error[i] < tol_correction) break;
@@ -255,3 +284,4 @@ int main(int argc, char* argv[])
     Free_dmatcsr(A);
     return 0;
 }
+

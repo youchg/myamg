@@ -16,14 +16,14 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   1
+#define eigenpair_given   0
 #define direct_method_all 0
-#define direct_method_amg 0
+#define direct_method_amg 1
 #define amg_method        1
 
 #define precondition      0
 
-#define direct_nev        32
+#define direct_nev        13//32
 
 #define nmax_correction   20
 //#define nev               30
@@ -32,6 +32,7 @@
 
 #define tol_correction    1e-09
 
+int print_rank = 0;
 int main(int argc, char* argv[])
 {
     int nev = 0;

@@ -10,7 +10,7 @@ coarsening_type                      = 1 %1:STD_RS  2:CLJP
 positive_connected                   = 0 %1:YES 0:NO
 interpolation_type                   = 1 %1:DIR 2:STD
 max_level                            = 100
-max_coarsest_dof                     = 200
+max_coarsest_dof                     = 1000
 setup_phase_print_level              = 0
 
 #---------- linear solver base type ----------#

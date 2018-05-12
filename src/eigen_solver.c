@@ -57,7 +57,7 @@ void Eigen_solver_amg(multigrid *amg,
                       double **evec, int init_approx_level, int is_init_approx_level_correction, 
                       amg_param param)
 {
-    printf("Begin Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
+    //printf("Begin Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
     double t1, t2, t3, t4;
     double eigen_time    = 0;
     double linear_time   = 0;
@@ -200,7 +200,7 @@ void Eigen_solver_amg(multigrid *amg,
         }
     }
 
-    printf("End Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
+    //printf("End Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
 
 
     if(status) printf("amg cycle end.\n");
@@ -222,7 +222,7 @@ void Eigen_solver_amg(multigrid *amg,
         printf("get new evec     time = %f\n", new_evec_time);
         printf("correction total time = %f\n", t2-t1);
     }
-    printf("Free Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
+    //printf("Free Eigen_solver_amg(): memory use (MB): %f\n", Get_memory());
 }
 
 void Eigen_solver_amg_nested(multigrid *amg, 

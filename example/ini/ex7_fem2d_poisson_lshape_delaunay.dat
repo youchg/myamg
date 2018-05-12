@@ -1,8 +1,8 @@
 #---------- read file ----------#
 
 #32
-Afile = ../dat/fem2d_poisson_lshape_delaunay/A_Delaunay_lshape.dmatcsr
-Mfile = ../dat/fem2d_poisson_lshape_delaunay/M_Delaunay_lshape.dmatcsr
+Afile = ../../dat/fem2d_poisson_lshape_delaunay/A_Delaunay_lshape.dmatcsr
+Mfile = ../../dat/fem2d_poisson_lshape_delaunay/M_Delaunay_lshape.dmatcsr
 
 #---------- amg setup phase ----------#
 strong_connection_threshold          = 0.25

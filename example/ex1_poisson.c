@@ -17,10 +17,10 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
-#define eigenpair_given   0
+#define eigenpair_given   1
 #define direct_method_all 0
 #define amg_method        1
-#define direct_method_amg 1
+#define direct_method_amg 0
 #define amg_eigen         1
 
 #define precondition      0
@@ -142,11 +142,13 @@ int main(int argc, char* argv[])
     printf("setup phase time: %f\n", te_setup-tb_setup);
 
 #if !eigenpair_given && direct_method_amg
-    printf("Direct eigen solver begin: memory use (MB): %f\n", Get_memory());
+    //printf("Direct eigen solver begin: memory use (MB): %f\n", Get_memory());
 
+#if 0
     printf("\n\nsleep...\n");
     sleep(100);
     printf("start...\n\n");
+#endif
 
     double   tb_direct_amg          = Get_time();
     double  *eval_direct_amg = (double*) calloc(direct_nev, sizeof(double));
@@ -161,14 +163,17 @@ int main(int argc, char* argv[])
     double te_direct_amg = Get_time();
     printf("direct eigen amg time: %f\n", te_direct_amg - tb_direct_amg);
 
-    printf("Direct eigen solver end: memory use (MB): %f\n", Get_memory());
+    //printf("Direct eigen solver end: memory use (MB): %f\n", Get_memory());
 #endif
+
+#if 0
     printf("\n\nsleep...\n");
     sleep(100);
     printf("start...\n\n");
+#endif
 
 #if amg_eigen
-    printf("AMG eigen solver begin: memory use (MB): %f\n", Get_memory());
+    //printf("AMG eigen solver begin: memory use (MB): %f\n", Get_memory());
 
     double  *total_error = (double*)calloc(nmax_correction, sizeof(double));
     double  *corre_time  = (double*)calloc(nmax_correction, sizeof(double));
@@ -211,9 +216,11 @@ int main(int argc, char* argv[])
     int ncorrection = 0;
     for(i=1; i<nmax_correction; i++)
     {
+#if 0
     printf("\n\nsleep...\n");
     sleep(10);
     printf("start...\n\n");
+#endif
 
 	printf("=============== %d ===============\n", i);
 	tb_amg = Get_time();
@@ -255,7 +262,7 @@ int main(int argc, char* argv[])
     printf("******** whole correction time: %f *********\n", te_correction_amg - tb_correction_amg);
     printf("***************************************************\n");
 
-    printf("AMG eigen solver end: memory use (MB): %f\n", Get_memory());
+    //printf("AMG eigen solver end: memory use (MB): %f\n", Get_memory());
 
     free(corre_time);
     free(total_error);

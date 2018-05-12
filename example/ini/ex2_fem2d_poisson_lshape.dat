@@ -1,8 +1,8 @@
 #---------- read file ----------#
 
 #32
-Afile = ../dat/fem2d_poisson_lshape/gmg_A_refine10.m
-Mfile = ../dat/fem2d_poisson_lshape/gmg_M_refine10.m
+Afile = ../../dat/fem2d_poisson_lshape/gmg_A_refine10.m
+Mfile = ../../dat/fem2d_poisson_lshape/gmg_M_refine10.m
 
 #---------- amg setup phase ----------#
 strong_connection_threshold          = 0.25
@@ -11,7 +11,7 @@ truncation_threshold                 = 0.2
 positive_connected                   = 0 %1:YES 0:NO
 interpolation_type                   = 1 %1:DIR 2:STD
 max_level                            = 100
-max_coarsest_dof                     = 500
+max_coarsest_dof                     = 1500
 setup_phase_print_level              = 0
 
 #---------- linear solver base type ----------#
