@@ -31,12 +31,6 @@ static double Correction_get_new_evec(multigrid *amg, int current_level, int coa
 	                              int n, double **V, double **evec_expand, double **evec);
 
 
-/* 当 init_approx_level >= 0 时，eval, evec 必须给定初值，并且不能为 0;
-   当 init_approx_level == 0 时，is_init_approx_level_correction 必须大于 0
-*/
-//Problem: when already have a finer result such as 0-level approximation, but
-//want to correct it from a coarser level, there maybe some problem
-//----20160301
 void Eigen_solver_amg_argumented(multigrid *amg, 
                                  int nev, double *eval, double **evec, 
                                  amg_param param)
@@ -49,7 +43,7 @@ void Eigen_solver_amg_argumented(multigrid *amg,
   double new_evec_time = 0;
   t1 = Get_time();
 
-  int status = 0;
+  int status = 1;
 
   int i, j, m;
   int nlevel         = amg->actual_level;

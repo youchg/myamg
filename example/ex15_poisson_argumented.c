@@ -10,6 +10,7 @@
 #include "linear_algebra.h"
 #include "linear_solver.h"
 #include "eigen_solver.h"
+#include "eigen_solver_argumented.h"
 #include "matrix.h"
 #include "multigrid.h"
 #include "setup_phase.h"
@@ -180,6 +181,14 @@ int main(int argc, char* argv[])
     double  *eval_amg = (double*) calloc(nev, sizeof(double));
     double **evec_amg        = (double**)malloc(nev* sizeof(double*));
     for(i=0; i<nev; i++) evec_amg[i] = (double*)calloc(A->nc, sizeof(double));
+    srand(1);
+    int j = 0;
+    // random initial vector
+    for(i = 0; i < nev; ++i) {
+      for(j = 0; j < A->nc; ++j) {
+        evec_amg[i][j] = (double)(rand()) / (double)((unsigned long)RAND_MAX + 1);
+      }
+    }
     double tb_amg, te_amg;
     printf("=============== 0 ===============\n");
     tb_amg = Get_time();
@@ -187,7 +196,7 @@ int main(int argc, char* argv[])
     param_eigen.amgeigen_nouter_iter = 1;
     param_eigen.amgsolver_max_cycle  = 1;
     param_eigen.pcg_amg_max_iter     = 1;
-    Eigen_solver_amg_nested(amg, nev, eval_amg, evec_amg, param_eigen);
+    Eigen_solver_amg_argumented(amg, nev, eval_amg, evec_amg, param_eigen);
     te_amg = Get_time();
     printf("* 0 * approximate eigenvalue: \n");/* show the result */
     corre_time[0] = te_amg - tb_amg;
@@ -223,7 +232,7 @@ int main(int argc, char* argv[])
 	tb_amg = Get_time();
         param_eigen.amgsolver_max_cycle  = 1;
         param_eigen.pcg_amg_max_iter     = 1;
-	Eigen_solver_amg(amg, nev, eval_amg, evec_amg, 0, 1, param_eigen);
+	Eigen_solver_amg_argumented(amg, nev, eval_amg, evec_amg, param_eigen);
 	int j;
 	te_amg = Get_time();
         corre_time[i] = te_amg - tb_amg;
