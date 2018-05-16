@@ -30,9 +30,10 @@ ex10_fem3dlaplace :ex10_fem3dlaplace.exe
 ex11_fem3dhydrogen:ex11_fem3dhydrogen.exe
 
 ex12_fem2d_anisotropic:ex12_fem2d_anisotropic.exe
-ex13_fem2d_strong_anisotropic:ex13_fem2d_strong_anisotropic.exe
 
-ex14_jiusuo:ex14_jiusuo.exe
+ex13_jiusuo:ex13_jiusuo.exe
+
+ex15_poisson_argumented:ex15_poisson_argumented.exe
 #################################################
 clean:
 	@clear; clear;
