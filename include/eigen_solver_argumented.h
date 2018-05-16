@@ -1,5 +1,5 @@
-#ifndef __AMG_EIGEN_SOLVER_H__
-#define __AMG_EIGEN_SOLVER_H__
+#ifndef __AMG_EIGEN_SOLVER_ARGUMENTED_H__
+#define __AMG_EIGEN_SOLVER_ARGUMENTED_H__
 
 #include "multigrid.h"
 #include "amg_param.h"
