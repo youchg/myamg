@@ -45,3 +45,6 @@
 
 # result
 *.txt
+example/*.txt
+example/*.sh
+example/result/*

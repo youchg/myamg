@@ -299,10 +299,10 @@ int Split_par_CLJP(par_dmatcsr *A, par_imatcsr *S, par_ivec *dof)
     nindex_recv = comm_info->nindex_row;
      index_recv = comm_info->index_row;
 
+    int *proc_neighbor = comm_info->proc_neighbor;
     //MPI_Sendrecv(void *sendbuf,int sendcount,MPI_Datatype sendtype,int dest,  int sendtag,
     //             void *recvbuf,int recvcount,MPI_Datatype recvtype,int source,int recvtag,
     //             MPI_Comm comm,MPI_Status *status)
-    int *proc_neighbor = comm_info->proc_neighbor;
     for(i=0; i<nproc_neighbor; i++)
     {
 	MPI_Sendrecv(measure_send[i], nindex_send[i], MPI_DOUBLE, proc_neighbor[i], myrank+proc_neighbor[i]*1000, 
