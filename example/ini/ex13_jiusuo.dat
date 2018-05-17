@@ -1,0 +1,56 @@
+#---------- read file ----------#
+
+#32
+
+#Afile = /home/ycg/Software/ChallengeProgram/csrmatrices/logK.dmatcsr
+#Mfile = /home/ycg/Software/ChallengeProgram/csrmatrices/logM.dmatcsr
+
+Afile = /home/ycg/Software/ChallengeProgram/csrmatrices/K_acoustic_solid_scaling.dmatcsr
+Mfile = /home/ycg/Software/ChallengeProgram/csrmatrices/M_acoustic_solid_scaling.dmatcsr
+
+#---------- amg setup phase ----------#
+strong_connection_threshold          = 0.25
+strong_diagonally_dominant_threshold = 0.1
+truncation_threshold                 = 0.2
+positive_connected                   = 0 %1:YES 0:NO
+interpolation_type                   = 1 %1:DIR 2:STD
+max_level                            = 100
+max_coarsest_dof                     = 500
+setup_phase_print_level              = 0
+
+#---------- linear solver base type ----------#
+linear_solver_base_type = 2 %1:CG 2:GS
+
+#---------- cg ----------#
+cg_max_iter = 1000 
+cg_tol      = 1e-14
+
+#---------- gs ----------#
+gs_max_iter = 1000
+gs_tol      = 1e-14
+
+#---------- amg cycle ----------#
+amgcycle_tol                 = 1e-16
+amgcycle_coarsest_tol        = 1e-18
+amgcycle_mu                  = 1
+amgcycle_pre_post_smooth     = 1
+amgcycle_coarsest_level      = 0
+amgcycle_max_coarsest_smooth = 1000
+amgcycle_print_level         = 0
+
+#---------- amgsolver ----------#
+amgsolver_tol                     = 1e-12
+amgsolver_max_cycle               = 100
+amgsolver_max_convergence_factor  = 0.99
+amgsolver_nmax_convergence_factor = 1
+amgsolver_print_level             = 0
+
+#---------- amgpcg ----------#
+pcg_amg_tol         = 1e-14
+pcg_amg_max_iter    = 100
+pcg_amg_print_level = 0
+
+#---------- eigen solver amg ----------#
+amgeigen_coarsest_level = 0
+amgeigen_nouter_iter    = 1
+amgeigen_print_level    = 1
