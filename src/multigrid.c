@@ -80,6 +80,7 @@ void Free_multigrid(multigrid *amg)
             Free_dmatcsr(amg->P[i]);
         for(i=actual_level-1; i<max_level; i++)
         {
+            if(i < 0) continue; // only for special case that actual level is 0
             free(amg->P[i]);
             amg->P[i] = NULL;
         }
@@ -93,6 +94,7 @@ void Free_multigrid(multigrid *amg)
             Free_dmatcsr(amg->R[i]);
         for(i=actual_level-1; i<max_level; i++)
         {
+            if(i < 0) continue; // only for special case that actual level is 0
             free(amg->R[i]);
             amg->R[i] = NULL;
         }

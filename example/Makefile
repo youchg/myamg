@@ -36,6 +36,8 @@ ex13_jiusuo:ex13_jiusuo.exe
 ex15_poisson_augmented:ex15_poisson_augmented.exe
 
 ex16_poisson_augmented_one:ex16_poisson_augmented_one.exe
+
+ex_eigen_solver_gmg_augmented_one:ex_eigen_solver_gmg_augmented_one.exe
 #################################################
 clean:
 	@clear; clear;

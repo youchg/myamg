@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     int nev = 0;
     int error_nev_b = 0;
     int error_nev_e = 0;
-    int augmented_index = 12;
+    int augmented_index = 8;
     Init_nev_argv(argc, argv, &nev, &error_nev_b, &error_nev_e);
     printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
     error_nev_b = augmented_index;
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
     int i;
 #if eigenpair_given
     double eval_given[direct_nev] = {
-#if 0
+#if 1
 	 19.739351152446577,
 	 49.348398772994052,
 	 49.348426661655587,
