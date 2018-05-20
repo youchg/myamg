@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     int nev = 0;
     int error_nev_b = 0;
     int error_nev_e = 0;
-    int augmented_index = 8;
+    int augmented_index = 12;
     Init_nev_argv(argc, argv, &nev, &error_nev_b, &error_nev_e);
     printf("nev = %d, nb = %d, ne = %d\n", nev, error_nev_b, error_nev_e);
     error_nev_b = augmented_index;

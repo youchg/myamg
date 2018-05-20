@@ -10,7 +10,7 @@
 #include "linear_algebra.h"
 #include "linear_solver.h"
 #include "eigen_solver.h"
-#include "eigen_solver_argumented.h"
+#include "eigen_solver_augmented.h"
 #include "matrix.h"
 #include "multigrid.h"
 #include "setup_phase.h"
@@ -196,7 +196,7 @@ int main(int argc, char* argv[])
     param_eigen.amgeigen_nouter_iter = 1;
     param_eigen.amgsolver_max_cycle  = 1;
     param_eigen.pcg_amg_max_iter     = 1;
-    Eigen_solver_amg_argumented(amg, nev, eval_amg, evec_amg, param_eigen);
+    Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
     te_amg = Get_time();
     printf("* 0 * approximate eigenvalue: \n");/* show the result */
     corre_time[0] = te_amg - tb_amg;
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
 	tb_amg = Get_time();
         param_eigen.amgsolver_max_cycle  = 1;
         param_eigen.pcg_amg_max_iter     = 1;
-	Eigen_solver_amg_argumented(amg, nev, eval_amg, evec_amg, param_eigen);
+	Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
 	int j;
 	te_amg = Get_time();
         corre_time[i] = te_amg - tb_amg;

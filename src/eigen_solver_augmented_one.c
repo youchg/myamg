@@ -72,7 +72,7 @@ void Eigen_solver_amg_augmented_one(multigrid *amg,
   dmatcsr *Alarge = Expand_dmatcsr_struct(AH, 1);
   dmatcsr *Mlarge = Expand_dmatcsr_struct(MH, 1);
 
-  double *dvec_amg    = (double*)calloc(     A->nr, sizeof(double));
+  double *dvec_amg    = (double*)calloc(A->nr, sizeof(double));
 
   int      augmented_nev  = index + 1;
   double  *augmented_eval = (double* )calloc(augmented_nev,  sizeof(double));

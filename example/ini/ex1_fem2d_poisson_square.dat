@@ -1,8 +1,8 @@
 #---------- read file ----------#
 
 #32
-Afile = ../../dat/fem2d_poisson_square/gmg_A_refine7.m
-Mfile = ../../dat/fem2d_poisson_square/gmg_M_refine7.m
+Afile = ../../dat/fem2d_poisson_square/gmg_A_refine7.dat
+Mfile = ../../dat/fem2d_poisson_square/gmg_M_refine7.dat
 
 #---------- amg setup phase ----------#
 strong_connection_threshold          = 0.25

@@ -87,7 +87,7 @@ void Eigen_solver_amg(multigrid *amg,
         t3 = Get_time();
 
         Eigen_solver_arpack_dn(AH, MH, nev, eval, evec);
-        for(j=0; j<nev; j++) Normalize_dvec(evec[j], AH->nr);
+        //for(j=0; j<nev; j++) Normalize_dvec(evec[j], AH->nr);
 
         t4 = Get_time();
         eigen_time += t4-t3;
@@ -97,6 +97,39 @@ void Eigen_solver_amg(multigrid *amg,
             printf("========= coarest eigenvalue on level %d =========\n", coarsest_level);
             for(i=0; i<nev; i++) printf("%d: %15.12f\n", i, eval[i]);
 	    printf("==================================================\n");
+
+#if 0
+            for(i=0; i<nev; i++) 
+                printf("norm evec[%d] = %f\n", i, Get_dvec_2norm(evec[i], AH->nr));
+            for(j=0; j<AH->nr; j++) 
+                printf("evec[0][%d] = %f\n", j, evec[0][j]);
+
+            double *Atmp = (double*)calloc(AH->nr, sizeof(double));
+            double *Mtmp = (double*)calloc(AH->nr, sizeof(double));
+            for(i=0; i<nev; i++) {
+              Multi_dmatcsr_dvec(MH, evec[i], Mtmp);
+              for(j=0; j<nev; j++) {
+                printf("%f ", Multi_dvec_dvec(evec[j], Mtmp, AH->nr));
+              }
+              printf("\n");
+            }
+            printf("\n");
+            for(i=0; i<nev; i++) {
+              Multi_dmatcsr_dvec(AH, evec[i], Atmp);
+              for(j=0; j<nev; j++) {
+                printf("%f ", Multi_dvec_dvec(evec[j], Atmp, AH->nr));
+              }
+              printf("\n");
+            }
+            for(i=0; i<nev; i++) {
+              Multi_dmatcsr_dvec(AH, evec[i], Atmp);
+              Multi_dmatcsr_dvec(MH, evec[i], Mtmp);
+                printf("%f ", Multi_dvec_dvec(evec[i], Atmp, AH->nr) / Multi_dvec_dvec(evec[i], Mtmp, AH->nr));
+              printf("\n");
+            }
+            free(Atmp);
+            free(Mtmp);
+#endif
         }
     }
 
@@ -141,6 +174,7 @@ void Eigen_solver_amg(multigrid *amg,
 		    if(init_approx_level < 0)
 		    {
 			Multi_dmatcsr_dvec(matP, evec[j], dvec_amg[j]);
+                //printf("norm dvec_amg[%d] = %f\n", j, Get_dvec_2norm(dvec_amg[j], matP->nr));
 		    }
 		    else
 		    {
@@ -154,9 +188,12 @@ void Eigen_solver_amg(multigrid *amg,
 		{
 		    memcpy(dvec_amg[j], evec[j], matA->nr*sizeof(double));
 		}
+
 	    }
 
 	    linear_time += Correction_solve_linear(amg, i, nev, eval, dvec_amg, param);
+            for(j=0; j<nev; j++)
+                printf("after linear norm dvec_amg[%d] = %f\n", j, Get_dvec_2norm(dvec_amg[j], matA->nr));
 #if   amg_eigen_expand_type == 1
 	    expand_time += Correction_expand_matrix_RAhV_VTAhV(Alarge, matA, AH, amg, i, coarsest_level, nev, dvec_amg); 
 	    expand_time += Correction_expand_matrix_RAhV_VTAhV(Mlarge, matM, MH, amg, i, coarsest_level, nev, dvec_amg); 
@@ -170,7 +207,7 @@ void Eigen_solver_amg(multigrid *amg,
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Alarge, matA, AH, amg, i, coarsest_level, nev, dvec_amg); 
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Mlarge, matM, MH, amg, i, coarsest_level, nev, dvec_amg); 
 #endif
-	    if(i==0)
+	    //if(i==0)
 	    {
 	    Write_dmatcsr_csr(Alarge, "../output/Alarge_seq.dat");
 	    Write_dmatcsr_csr(Mlarge, "../output/Mlarge_seq.dat");
@@ -196,6 +233,7 @@ void Eigen_solver_amg(multigrid *amg,
 	    }
 
 	    new_evec_time += Correction_get_new_evec(amg, i, coarsest_level, nev, dvec_amg, evec_expand, evec);
+            exit(-1);
         }
     }
 
@@ -332,6 +370,18 @@ static double Correction_expand_matrix_RAhV_VTAhV(dmatcsr *AL, dmatcsr *Ah, dmat
     for(j=0; j<n; j++) Multi_dmatcsr_dvec(Ah, V[j], AhV[j]); 
     for(j=0; j<n; j++) RestrictFine2Coarse(amg, current_level, coarsest_level, AhV[j], RAhV[j]);
     for(j=0; j<n; j++) for(k=0; k<n; k++) VTAhV[j][k] = Multi_dvec_dvec(V[j], AhV[k], Ah->nr);
+    printf("\n\n");
+    for(j=0; j<n; j++) for(k=0; k<n; k++) printf("VTAhV[%d][%d] = %f\n", j, k, VTAhV[j][k]);
+    printf("\n\n");
+
+    printf("\n\n RAhV = \n");
+    for(k=0; k<AH->nr; k++) {
+      for(j=0; j<n; j++) {
+        printf("%g ", RAhV[j][k]);
+      }
+      printf("\n");
+    }
+    printf("\n\n");
 
     Expand_dmatcsr(AL, n, RAhV, VTAhV);
 

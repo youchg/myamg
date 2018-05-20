@@ -21,17 +21,17 @@
 
 #define direct_nev        32
 #define tol_correction    1e-09
-#define nmax_correction   20
+#define nmax_correction   2
 
-#define filename_prefix     "../../dat/fem2d_poisson_square/"
+#define filename_prefix     "/home/ycg/Software/youchg/dat/fem2d_poisson_square/"
 #define gmg_finest_level    7
-#define gmg_coarsest_level  3
+#define gmg_coarsest_level  4
 
 int print_rank = 0;
 int main(int argc, char* argv[])
 {
-  int nev = 13;
-  int augmented_index = 12;
+  int nev = 5;
+  int augmented_index = 3;
   assert(nev >= augmented_index+1);
 
   int i = 0;
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 #endif
   };
 
-#if 0
+#if 1
   if(argc < 2) {
     printf("Too few arguments!\n");
     exit(0);
@@ -122,66 +122,117 @@ int main(int argc, char* argv[])
   Init_amg_param_argv(argc, argv, &param, NULL, NULL, NULL);
   Print_amg_param(param);
 
+#if 1
   int actual_level = gmg_finest_level - gmg_coarsest_level + 1;
   multigrid *amg = Init_amg(actual_level, 2); // 2: generalized eigenvalue problem
-
-  for(i = 0; i < actual_level; i++) {
-    char str[10];
-    char Afile[256];
-    strcpy(Afile, filename_prefix"gmg_A_refine");
-    sprintf(str, "%d", gmg_finest_level - i);
-    strcat(Afile, str);
-    strcat(Afile, ".m");
-    printf("Read A[%2d] from %s\n", i, Afile);
-    //free(amg->A[i]);
-    //amg->A[i] = Read_dmatcsr(Afile);
-    //Print_dmatcsr(A);
-    //Remove_zero_dmatcsr(A);
-    //Print_dmatcsr(A);
+  {
+    for(i = 0; i < actual_level; i++) {
+      char str[10];
+      char Afile[256];
+      strcpy(Afile, filename_prefix"gmg_A_refine");
+      sprintf(str, "%d", gmg_finest_level - i);
+      strcat(Afile, str);
+      strcat(Afile, ".dat");
+      printf("Read A[%2d] from %s\n", i, Afile);
+      free(amg->A[i]);
+      amg->A[i] = Read_dmatcsr(Afile);
+      Print_dmatcsr(amg->A[i]);
+      //Remove_zero_dmatcsr(A);
+      //Print_dmatcsr(A);
+    }
+    printf("\n");
+    for(i = 0; i < actual_level; i++) {
+      char str[10];
+      char Mfile[256];
+      strcpy(Mfile, filename_prefix"gmg_M_refine");
+      sprintf(str, "%d", gmg_finest_level - i);
+      strcat(Mfile, str);
+      strcat(Mfile, ".dat");
+      printf("Read M[%2d] from %s\n", i, Mfile);
+      free(amg->M[i]);
+      amg->M[i] = Read_dmatcsr(Mfile);
+      Print_dmatcsr(amg->M[i]);
+    }
+    printf("\n");
+    for(i = 0; i < actual_level - 1; i++) {
+      char str[10];
+      char Pfile[256];
+      strcpy(Pfile, filename_prefix"gmg_P_refine");
+      sprintf(str, "%d", gmg_finest_level - i);
+      strcat(Pfile, str);
+      strcat(Pfile, ".dat");
+      printf("Read P[%2d] from %s\n", i, Pfile);
+      free(amg->P[i]);
+      amg->P[i] = Read_dmatcsr(Pfile);
+      Print_dmatcsr(amg->P[i]);
+    }
+    printf("\n");
+    for(i = 0; i < actual_level - 1; i++) {
+      char str[10];
+      char Rfile[256];
+      strcpy(Rfile, filename_prefix"gmg_R_refine");
+      sprintf(str, "%d", gmg_finest_level - i);
+      strcat(Rfile, str);
+      strcat(Rfile, ".dat");
+      printf("Read R[%2d] from %s\n", i, Rfile);
+      free(amg->R[i]);
+      amg->R[i] = Read_dmatcsr(Rfile);
+      Print_dmatcsr(amg->R[i]);
+    }
   }
-  printf("\n");
-  for(i = 0; i < actual_level; i++) {
-    char str[10];
-    char Mfile[256];
-    strcpy(Mfile, filename_prefix"gmg_M_refine");
-    sprintf(str, "%d", gmg_finest_level - i);
-    strcat(Mfile, str);
-    strcat(Mfile, ".m");
-    printf("Read M[%2d] from %s\n", i, Mfile);
-    //free(amg->M[i]);
-    //amg->M[i] = Read_dmatcsr(Mfile);
-  }
-  printf("\n");
-  for(i = 0; i < actual_level - 1; i++) {
-    char str[10];
-    char Pfile[256];
-    strcpy(Pfile, filename_prefix"gmg_P_refine");
-    sprintf(str, "%d", gmg_finest_level - i);
-    strcat(Pfile, str);
-    strcat(Pfile, ".m");
-    printf("Read P[%2d] from %s\n", i, Pfile);
-    //free(amg->P[i]);
-    //amg->P[i] = Read_dmatcsr(Pfile);
-  }
-  printf("\n");
-  for(i = 0; i < actual_level - 1; i++) {
-    char str[10];
-    char Qfile[256];
-    strcpy(Qfile, filename_prefix"gmg_Q_refine");
-    sprintf(str, "%d", gmg_finest_level - i);
-    strcat(Qfile, str);
-    strcat(Qfile, ".m");
-    printf("Read Q[%2d] from %s\n", i, Qfile);
-    //free(amg->Q[i]);
-    //amg->Q[i] = Read_dmatcsr(Qfile);
-  }
-
   amg->actual_level = actual_level;
   Print_amg(amg);
+#else
+  char str[10];
+  char Afile[256];
+  char Mfile[256];
+  strcpy(Afile, filename_prefix"gmg_A_refine");
+  strcpy(Mfile, filename_prefix"gmg_M_refine");
+  sprintf(str, "%d", gmg_finest_level - i);
+  strcat(Afile, str);
+  strcat(Mfile, str);
+  strcat(Afile, ".dat");
+  strcat(Mfile, ".dat");
+  printf("Read A[%2d] from %s\n", i, Afile);
+  printf("Read M[%2d] from %s\n", i, Mfile);
+  dmatcsr *AA = Read_dmatcsr(Afile);
+  dmatcsr *MM = Read_dmatcsr(Mfile);
+  Print_dmatcsr(AA);
+  Print_dmatcsr(MM);
+  Remove_zero_dmatcsr(AA);
+  Remove_zero_dmatcsr(MM);
+  Print_dmatcsr(AA);
+  Print_dmatcsr(MM);
+  multigrid *amg = Build_amg(AA, MM, param.max_level);
+  Free_dmatcsr(AA);
+  Free_dmatcsr(MM);
+  double tb_setup = Get_time();
+  Setup_phase(amg, param);
+  double te_setup = Get_time();
+  Print_amg(amg);
+  printf("setup phase time: %f\n", te_setup-tb_setup);
+#endif
 
   double te_init = Get_time();
   printf("\ninit time: %f\n", te_init-tb_init);
 
+#if 1
+  double   tb_direct_all   = Get_time();
+  double  *eval_direct_all = (double*) calloc(direct_nev, sizeof(double));
+  double **evec_direct_all = (double**)malloc(direct_nev* sizeof(double*));
+  int      direct_level    = amg->actual_level - 1;
+  for(i=0; i<direct_nev; i++) evec_direct_all[i] = (double*)calloc(amg->A[direct_level]->nc, sizeof(double));
+  printf("\ncalling direct method all...\n");
+  Eigen_solver_arpack_dn(amg->A[direct_level], amg->M[direct_level], direct_nev, eval_direct_all, evec_direct_all);
+  printf("================= direct all result ===================\n");
+  for(i=0; i<direct_nev; i++) printf("%2d: %20.15f\n", i, eval_direct_all[i]);
+  printf("===================================================\n");
+  for(i=0; i<direct_nev; i++) { free(evec_direct_all[i]); } 
+  free(evec_direct_all); evec_direct_all = NULL;
+  free(eval_direct_all); eval_direct_all = NULL;
+  double te_direct_all = Get_time();
+  printf("direct eigen time: %f\n", te_direct_all - tb_direct_all);
+#endif
 
   dmatcsr *A = amg->A[0];
 
@@ -191,7 +242,7 @@ int main(int argc, char* argv[])
   /* solve eigenvalue problem */
   double tb_correction_amg = Get_time();
   double  *eval_amg = (double*) calloc(nev, sizeof(double));
-  double **evec_amg        = (double**)malloc(nev* sizeof(double*));
+  double **evec_amg = (double**)malloc(nev* sizeof(double*));
   for(i=0; i<nev; i++) evec_amg[i] = (double*)calloc(A->nc, sizeof(double));
   srand(1);
   int j = 0;
@@ -206,9 +257,10 @@ int main(int argc, char* argv[])
   tb_amg = Get_time();
   amg_param param_eigen = param;
   param_eigen.amgeigen_nouter_iter = 1;
-  param_eigen.amgsolver_max_cycle  = 1;
+  param_eigen.amgsolver_max_cycle  = 100;
   param_eigen.pcg_amg_max_iter     = 1;
-  Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
+  //Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
+  Eigen_solver_amg_nested(amg, nev, eval_amg, evec_amg, param_eigen);
   te_amg = Get_time();
   printf("* 0 * approximate eigenvalue: \n");/* show the result */
   corre_time[0] = te_amg - tb_amg;
@@ -229,6 +281,7 @@ int main(int argc, char* argv[])
     param_eigen.amgsolver_max_cycle  = 1;
     param_eigen.pcg_amg_max_iter     = 1;
     assert(nev >= augmented_index);
+    //Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
     Eigen_solver_amg_augmented_one(amg, augmented_index, &eval_amg[augmented_index], evec_amg[augmented_index], param_eigen);
     te_amg = Get_time();
     corre_time[i] = te_amg - tb_amg;
@@ -237,7 +290,7 @@ int main(int argc, char* argv[])
     printf("correction %2d time : %20.15f\n", i, corre_time[i]);
     printf("correction %2d error: %20.15f\n", i, total_error[i]);
     ncorrection++;
-    if(total_error[i] < tol_correction) break;
+    if(fabs(total_error[i]) < tol_correction) break;
   }
   double te_correction_amg = Get_time();
   printf("==================================\n");
