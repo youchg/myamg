@@ -194,7 +194,7 @@ void Remove_zero_dmatcsr(dmatcsr *A)
         
         for(j=rb; j<re; j++)
         {
-            if(MABS(A->va[j]) > EPS)
+            if(MABS(A->va[j]) > MYAMGEPS)
             {
                 ia_new[ip1]++;
                 ja_new[nn_new] = A->ja[j];
@@ -695,7 +695,7 @@ void Normalize_dvec(double *x, int length)
     Max_abs_dvec(x, length, &max, NULL);
     Scale_dvec(x, 1.0/max, length);
     
-    if(fabs(max) < EPS)
+    if(fabs(max) < MYAMGEPS)
     {
         fprintf(stderr, "Warning in function \"NormalizeVec\": maximum of double vector [%18.15f] maybe equals to 0!\n", fabs(max));
     }

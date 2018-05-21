@@ -1,13 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <time.h>
-#include "preprocess.h"
-#include "io.h"
 #include "matrix.h"
-#include "arpack_interface.h"
-#include "tool.h"
+#include "io.h"
+#include "slepc_interface.h"
 
 int print_rank = 0;
 int main()
@@ -24,7 +19,7 @@ int main()
   double **evec = (double**)malloc(nev * sizeof(double*));
   for(i=0; i<nev; i++) evec[i] = (double*)calloc(A->nr, sizeof(double));
 
-  Eigen_solver_arpack_dn(A, M, nev, eval, evec);
+  Eigen_solver_slepc(A, M, nev, eval, evec);
 
   printf("\neigenvalues: \n");
   for(i=0; i<nev; i++) printf("%02d  %20.15f\n", i, eval[i]);

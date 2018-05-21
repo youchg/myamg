@@ -250,7 +250,7 @@ static double Correction_solve_linear(multigrid *amg, int current_level, int n, 
 #if 0
 	Scale_dvec(rhs, dval[j], M->nr);
 #else
-	if(MABS(dval[j]) > EPS) Scale_dvec(dvec[j], 1.0/dval[j], M->nr);
+	if(MABS(dval[j]) > MYAMGEPS) Scale_dvec(dvec[j], 1.0/dval[j], M->nr);
 #endif
 
 #if   amg_eigen_linear_solver == 1

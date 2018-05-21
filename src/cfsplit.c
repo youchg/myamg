@@ -122,7 +122,7 @@ static int Generate_strong_coupling_set_negtive(dmatcsr *A, imatcsr *S, amg_para
 	{
 	    for(j=row_begin; j<row_end; j++)
 	    {
-		if((va[j]-tol<EPS) && (ja[j]!=i))
+		if((va[j]-tol<MYAMGEPS) && (ja[j]!=i))
 		    S->ja[j] = ja[j];
 	    }
 	}
@@ -1282,8 +1282,8 @@ void Truncate_P(dmatcsr *P, amg_param param)
             }
         }
         
-        zoomn = (tsn < -EPS) ? sn/tsn : 1.0;
-        zoomp = (tsp >  EPS) ? sp/tsp : 1.0;
+        zoomn = (tsn < -MYAMGEPS) ? sn/tsn : 1.0;
+        zoomp = (tsp >  MYAMGEPS) ? sp/tsp : 1.0;
         
         for(j=rb; j<re; j++)
         {

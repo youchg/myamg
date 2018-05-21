@@ -19,9 +19,13 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
+#ifdef WITH_SLEPC
+#include <slepceps.h>
+#endif
+
 #define direct_nev        32
 #define tol_correction    1e-09
-#define nmax_correction   2
+#define nmax_correction   20
 
 #define filename_prefix     "/home/ycg/Software/youchg/dat/fem2d_poisson_square/"
 #define gmg_finest_level    7
@@ -30,8 +34,12 @@
 int print_rank = 0;
 int main(int argc, char* argv[])
 {
-  int nev = 5;
-  int augmented_index = 3;
+#ifdef WITH_SLEPC
+  SlepcInitialize(NULL, NULL, NULL, NULL);
+#endif
+
+  int nev = 13;
+  int augmented_index = 12;
   assert(nev >= augmented_index+1);
 
   int i = 0;
@@ -216,14 +224,16 @@ int main(int argc, char* argv[])
   double te_init = Get_time();
   printf("\ninit time: %f\n", te_init-tb_init);
 
-#if 1
+#if 0
   double   tb_direct_all   = Get_time();
   double  *eval_direct_all = (double*) calloc(direct_nev, sizeof(double));
   double **evec_direct_all = (double**)malloc(direct_nev* sizeof(double*));
-  int      direct_level    = amg->actual_level - 1;
+  //int      direct_level    = amg->actual_level - 1;
+  int      direct_level    = 0;
   for(i=0; i<direct_nev; i++) evec_direct_all[i] = (double*)calloc(amg->A[direct_level]->nc, sizeof(double));
   printf("\ncalling direct method all...\n");
-  Eigen_solver_arpack_dn(amg->A[direct_level], amg->M[direct_level], direct_nev, eval_direct_all, evec_direct_all);
+  //Eigen_solver_arpack_dn(amg->A[direct_level], amg->M[direct_level], direct_nev, eval_direct_all, evec_direct_all);
+  Eigen_solver_slepc(amg->A[direct_level], amg->M[direct_level], direct_nev, eval_direct_all, evec_direct_all);
   printf("================= direct all result ===================\n");
   for(i=0; i<direct_nev; i++) printf("%2d: %20.15f\n", i, eval_direct_all[i]);
   printf("===================================================\n");
@@ -257,10 +267,10 @@ int main(int argc, char* argv[])
   tb_amg = Get_time();
   amg_param param_eigen = param;
   param_eigen.amgeigen_nouter_iter = 1;
-  param_eigen.amgsolver_max_cycle  = 100;
+  param_eigen.amgsolver_max_cycle  = 1;
   param_eigen.pcg_amg_max_iter     = 1;
-  //Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
-  Eigen_solver_amg_nested(amg, nev, eval_amg, evec_amg, param_eigen);
+  Eigen_solver_amg_augmented(amg, nev, eval_amg, evec_amg, param_eigen);
+  //Eigen_solver_amg_nested(amg, nev, eval_amg, evec_amg, param_eigen);
   te_amg = Get_time();
   printf("* 0 * approximate eigenvalue: \n");/* show the result */
   corre_time[0] = te_amg - tb_amg;
@@ -269,6 +279,10 @@ int main(int argc, char* argv[])
   printf("%2d: %20.15f %20.15f\n", augmented_index, eval_amg[augmented_index], total_error[0]);
   printf("correction %2d time : %20.15f\n", 0, te_amg - tb_amg);
   printf("correction %2d error: %20.15f\n", 0, total_error[0]);
+  printf("\n");
+  printf("\n");
+  printf("***************************************************\n");
+  printf("***************************************************\n");
   printf("***************************************************\n");
   printf("***************************************************\n");
   printf("begin to correct eigenpair on the finest level...\n");
@@ -315,6 +329,10 @@ int main(int argc, char* argv[])
   free(eval_amg);
 
   Free_multigrid(amg);
+
+#ifdef WITH_SLEPC
+  SlepcFinalize();
+#endif
   return 0;
 }
 

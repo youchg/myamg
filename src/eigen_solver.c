@@ -8,6 +8,7 @@
 #include "multigrid.h"
 #include "eigen_solver.h"
 #include "arpack_interface.h"
+#include "slepc_interface.h"
 #include "linear_solver.h"
 #include "amg_param.h"
 #include "tool.h"
@@ -192,8 +193,7 @@ void Eigen_solver_amg(multigrid *amg,
 	    }
 
 	    linear_time += Correction_solve_linear(amg, i, nev, eval, dvec_amg, param);
-            for(j=0; j<nev; j++)
-                printf("after linear norm dvec_amg[%d] = %f\n", j, Get_dvec_2norm(dvec_amg[j], matA->nr));
+            //for(j=0; j<nev; j++) printf("after linear norm dvec_amg[%d] = %f\n", j, Get_dvec_2norm(dvec_amg[j], matA->nr));
 #if   amg_eigen_expand_type == 1
 	    expand_time += Correction_expand_matrix_RAhV_VTAhV(Alarge, matA, AH, amg, i, coarsest_level, nev, dvec_amg); 
 	    expand_time += Correction_expand_matrix_RAhV_VTAhV(Mlarge, matM, MH, amg, i, coarsest_level, nev, dvec_amg); 
@@ -207,18 +207,19 @@ void Eigen_solver_amg(multigrid *amg,
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Alarge, matA, AH, amg, i, coarsest_level, nev, dvec_amg); 
 	    expand_time += Correction_expand_matrix_AHRV_VTRTAHRV(Mlarge, matM, MH, amg, i, coarsest_level, nev, dvec_amg); 
 #endif
-	    //if(i==0)
-	    {
-	    Write_dmatcsr_csr(Alarge, "../output/Alarge_seq.dat");
-	    Write_dmatcsr_csr(Mlarge, "../output/Mlarge_seq.dat");
-	    //exit(-1);
-	    }
+	    if(i==0)
+            {
+                //Write_dmatcsr_csr(Alarge, "../output/Alarge_seq.dat");
+                //Write_dmatcsr_csr(Mlarge, "../output/Mlarge_seq.dat");
+                //exit(-1);
+            }
    
 	    if(status) printf("Solving corrected eigenvalue problem...\n");
 	    t3 = Get_time(); 
             memset(eval, 0, nev*sizeof(double));
             for(j=0; j<nev; j++) memset(evec_expand[j], 0, Alarge->nr*sizeof(double));
-	    Eigen_solver_arpack_dn(Alarge, Mlarge, nev, eval, evec_expand);
+	    Eigen_solver_slepc(Alarge, Mlarge, nev, eval, evec_expand);
+	    //Eigen_solver_arpack_dn(Alarge, Mlarge, nev, eval, evec_expand);
 	    Insertion_ascend_sort_dvec_dvecvec(eval, evec_expand, 0, nev-1);
 	    t4 = Get_time();
 	    eigen_time += t4-t3;
@@ -233,7 +234,6 @@ void Eigen_solver_amg(multigrid *amg,
 	    }
 
 	    new_evec_time += Correction_get_new_evec(amg, i, coarsest_level, nev, dvec_amg, evec_expand, evec);
-            exit(-1);
         }
     }
 
@@ -301,7 +301,7 @@ static double Correction_solve_linear(multigrid *amg, int current_level, int n, 
 #else
 	//if(j == print_j) Print_dvec(dvec[j], M->nr);
 	//if(j == print_j) Print_dvec(&dval[j], 1);
-	if(MABS(dval[j]) > EPS) Scale_dvec(dvec[j], 1.0/dval[j], M->nr);
+	if(MABS(dval[j]) > MYAMGEPS) Scale_dvec(dvec[j], 1.0/dval[j], M->nr);
 #endif
 
 #if   amg_eigen_linear_solver == 1
@@ -370,6 +370,7 @@ static double Correction_expand_matrix_RAhV_VTAhV(dmatcsr *AL, dmatcsr *Ah, dmat
     for(j=0; j<n; j++) Multi_dmatcsr_dvec(Ah, V[j], AhV[j]); 
     for(j=0; j<n; j++) RestrictFine2Coarse(amg, current_level, coarsest_level, AhV[j], RAhV[j]);
     for(j=0; j<n; j++) for(k=0; k<n; k++) VTAhV[j][k] = Multi_dvec_dvec(V[j], AhV[k], Ah->nr);
+#if 0
     printf("\n\n");
     for(j=0; j<n; j++) for(k=0; k<n; k++) printf("VTAhV[%d][%d] = %f\n", j, k, VTAhV[j][k]);
     printf("\n\n");
@@ -382,6 +383,7 @@ static double Correction_expand_matrix_RAhV_VTAhV(dmatcsr *AL, dmatcsr *Ah, dmat
       printf("\n");
     }
     printf("\n\n");
+#endif
 
     Expand_dmatcsr(AL, n, RAhV, VTAhV);
 

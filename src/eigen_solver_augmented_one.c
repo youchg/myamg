@@ -9,6 +9,7 @@
 #include "multigrid.h"
 #include "eigen_solver.h"
 #include "arpack_interface.h"
+#include "slepc_interface.h"
 #include "linear_solver.h"
 #include "amg_param.h"
 #include "tool.h"
@@ -98,7 +99,8 @@ void Eigen_solver_amg_augmented_one(multigrid *amg,
     t3 = Get_time(); 
     memset(augmented_eval, 0, augmented_nev*sizeof(double));
     for(j=0; j<augmented_nev; j++) memset(augmented_evec[j], 0, Alarge->nr*sizeof(double));
-    Eigen_solver_arpack_dn(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
+    //Eigen_solver_arpack_dn(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
+    Eigen_solver_slepc(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
     Insertion_ascend_sort_dvec_dvecvec(augmented_eval, augmented_evec, 0, augmented_nev-1);
     t4 = Get_time();
     eigen_time += t4-t3;
@@ -200,7 +202,7 @@ static double Correction_solve_linear(multigrid *amg, int current_level, double 
 	t1 = Get_time();
 	memset(rhs, 0, M->nr*sizeof(double));
 	Multi_dmatcsr_dvec(M, dvec, rhs);
-	if(MABS(dval) > EPS) Scale_dvec(dvec, 1.0/dval, M->nr);
+	if(MABS(dval) > MYAMGEPS) Scale_dvec(dvec, 1.0/dval, M->nr);
 
 #if   amg_eigen_linear_solver == 1
 	Linear_solver_amg(amg, current_level, rhs, dvec, param, &resi_norm_amg, &ncycle);

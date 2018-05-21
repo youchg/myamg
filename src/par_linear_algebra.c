@@ -895,7 +895,7 @@ void Normalize_par_dvec(par_dvec *x)
     MPI_Allreduce(&my_max, &max, 1, MPI_DOUBLE, MPI_MAX, x->comm);
     Scale_dvec(x->value, 1.0/max, x->length);
     
-    if(fabs(max) < EPS)
+    if(fabs(max) < MYAMGEPS)
     {
 	int myrank;
 	MPI_Comm_rank(x->comm, &myrank);
@@ -938,10 +938,10 @@ void Normalize_par_dvec_length(par_dvec *x, int length, MPI_Comm comm)
 #endif
     MPI_Allreduce(&my_max, &max1, 1, MPI_DOUBLE, MPI_MAX, comm);
     MPI_Allreduce(&my_max, &max2, 1, MPI_DOUBLE, MPI_MIN, comm);
-    max = (MABS(max1)-MABS(max2)<EPS)? max2: max1;
+    max = (MABS(max1)-MABS(max2)<MYAMGEPS)? max2: max1;
     Scale_dvec(x->value, 1.0/max, length);
     
-    if(fabs(max) < EPS)
+    if(fabs(max) < MYAMGEPS)
     {
 	int myrank;
 	MPI_Comm_rank(comm, &myrank);

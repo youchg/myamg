@@ -268,7 +268,6 @@ void Linear_solver_gs(dmatcsr *A, double *d,
 		val += va[j] * x[k];
 	    }
 	    
-	    //assert(fabs(d[i]) > EPS);
 	    x[i] += (b[i] - val) / d[i];
 	}
 	

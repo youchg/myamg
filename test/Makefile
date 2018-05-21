@@ -23,6 +23,7 @@ test_par_linear_solver:test_par_linear_solver.exe
 test_par_linear_solver:test_par_linear_solver.exe
 test_arpack:test_arpack.exe
 test_par_matrix:test_par_matrix.exe
+test_slepc:test_slepc.exe
 
 all: $(TARGETS)
 #################################################

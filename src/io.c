@@ -646,7 +646,7 @@ static void Stretch(double **B, int height, int width)
     assert(max >= min);
     /*For example, [-1, 2] -- [-0.5, 1]; [-2, 1] -- [-1, 0.5]*/
     double absmax = (fabs(max)>fabs(min))? fabs(max): fabs(min);
-    if(absmax < EPS)
+    if(absmax < MYAMGEPS)
     {
         return;
     }

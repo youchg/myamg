@@ -118,12 +118,12 @@ static int Generate_par_strong_coupling_set_negtive (par_dmatcsr *A, par_imatcsr
 	{
 	    for(j=A_diag_ia[i]; j<A_diag_ia[i+1]; j++)
 	    {
-		if((A_diag_va[j]-tol<EPS) && (A_diag_ja[j]!=i))
+		if((A_diag_va[j]-tol<MYAMGEPS) && (A_diag_ja[j]!=i))
 		    S_diag_ja[j] = A_diag_ja[j];
 	    }
 	    for(j=A_offd_ia[i]; j<A_offd_ia[i+1]; j++)
 	    {
-		if(A_offd_va[j]-tol < EPS)
+		if(A_offd_va[j]-tol < MYAMGEPS)
 		    S_offd_ja[j] = A_offd_ja[j];
 	    }
 	}
@@ -2653,8 +2653,8 @@ void Truncate_P(dmatcsr *P, amg_param param)
             }
         }
         
-        zoomn = (tsn < -EPS) ? sn/tsn : 1.0;
-        zoomp = (tsp >  EPS) ? sp/tsp : 1.0;
+        zoomn = (tsn < -MYAMGEPS) ? sn/tsn : 1.0;
+        zoomp = (tsp >  MYAMGEPS) ? sp/tsp : 1.0;
         
         for(j=rb; j<re; j++)
         {

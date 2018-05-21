@@ -459,7 +459,7 @@ static double Correction_par_solve_linear(par_multigrid *pamg, int current_level
 	    MPI_Barrier(pamg->comm[current_level]);
 #endif
 #endif
-	    if(MABS(dval[j]) > EPS) Scale_par_dvec(dvec[j], 1.0/dval[j]);
+	    if(MABS(dval[j]) > MYAMGEPS) Scale_par_dvec(dvec[j], 1.0/dval[j]);
 	    Linear_solver_par_amg(pamg, current_level, rhs, dvec[j], param, &resi_norm, &ncycle);
 	    double te = MPI_Wtime();
 	    if(myrank == 0) printf(" %2d    %2d     %3d       %18.15f     %f\n", current_level, j, ncycle, resi_norm, te-tb);

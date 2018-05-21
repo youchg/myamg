@@ -5,7 +5,6 @@
  * \brief dependency relation
  */
 #define WITH_BMP     1
-//#define WITH_UMFPACK 1
 
 /** 
  * \brief debugging macros
@@ -94,7 +93,7 @@
  */
 #define LARGE  9999
 #define SMALL -9999
-#define EPS    1e-15
+#define MYAMGEPS 1e-15
 
 
 /**
@@ -107,9 +106,6 @@
 /**
  * \brief linear solver type
  */
-#ifdef WITH_UMFPACK
-#define EXTERN_UMFPACK 0
-#endif
 #define CG 1
 #define GS 2
 
