@@ -11,7 +11,7 @@ truncation_threshold                 = 0.2
 positive_connected                   = 0 %1:YES 0:NO
 interpolation_type                   = 1 %1:DIR 2:STD
 max_level                            = 100
-max_coarsest_dof                     = 1000
+max_coarsest_dof                     = 500
 setup_phase_print_level              = 0
 
 #---------- linear solver base type ----------#

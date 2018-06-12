@@ -18,6 +18,10 @@
 #include "arpack_interface.h"
 #include "tool.h"
 
+#ifdef WITH_SLEPC
+#include <slepceps.h>
+#endif
+
 #define eigenpair_given   1
 #define direct_method_all 0
 #define amg_method        1
@@ -35,6 +39,9 @@
 int print_rank = 0;
 int main(int argc, char* argv[])
 {
+#ifdef WITH_SLEPC
+  SlepcInitialize(NULL, NULL, NULL, NULL);
+#endif
     int nev = 0;
     int error_nev_b = 0;
     int error_nev_e = 0;
@@ -297,6 +304,11 @@ int main(int argc, char* argv[])
 #endif
     Free_dmatcsr(M);
     Free_dmatcsr(A);
+
+#ifdef WITH_SLEPC
+  SlepcFinalize();
+#endif
+
     return 0;
 }
 

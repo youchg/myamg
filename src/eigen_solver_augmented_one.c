@@ -99,8 +99,8 @@ void Eigen_solver_amg_augmented_one(multigrid *amg,
     t3 = Get_time(); 
     memset(augmented_eval, 0, augmented_nev*sizeof(double));
     for(j=0; j<augmented_nev; j++) memset(augmented_evec[j], 0, Alarge->nr*sizeof(double));
-    //Eigen_solver_arpack_dn(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
-    Eigen_solver_slepc(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
+    Eigen_solver_arpack_dn(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
+    //Eigen_solver_slepc(Alarge, Mlarge, augmented_nev, augmented_eval, augmented_evec);
     Insertion_ascend_sort_dvec_dvecvec(augmented_eval, augmented_evec, 0, augmented_nev-1);
     t4 = Get_time();
     eigen_time += t4-t3;
@@ -137,6 +137,7 @@ void Eigen_solver_amg_augmented_one(multigrid *amg,
     double scale = Get_vector_A_norm(evec, M);
     assert(fabs(scale) > 1.0e-15);
     Scale_dvec(evec, 1.0/scale, M->nr);
+    *eval = Multi_dvec_dmatcsr_dvec(evec, A, evec);
     if(status) printf("Solving linear system... done.\n");
 
     if(1)

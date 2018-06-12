@@ -31,7 +31,6 @@ static double Correction_expand_matrix_RAhV_VTAhV(dmatcsr *AL, dmatcsr *Ah, dmat
 static double Correction_get_new_evec(multigrid *amg, int current_level, int coarsest_level,
 	                              int n, double **V, double **evec_expand, double **evec);
 
-
 void Eigen_solver_amg_augmented(multigrid *amg, 
                                  int nev, double *eval, double **evec, 
                                  amg_param param)
@@ -83,8 +82,8 @@ void Eigen_solver_amg_augmented(multigrid *amg,
     t3 = Get_time(); 
     memset(eval, 0, nev*sizeof(double));
     for(j=0; j<nev; j++) memset(evec_expand[j], 0, Alarge->nr*sizeof(double));
-    //Eigen_solver_arpack_dn(Alarge, Mlarge, nev, eval, evec_expand);
-    Eigen_solver_slepc(Alarge, Mlarge, nev, eval, evec_expand);
+    Eigen_solver_arpack_dn(Alarge, Mlarge, nev, eval, evec_expand);
+    //Eigen_solver_slepc(Alarge, Mlarge, nev, eval, evec_expand);
     Insertion_ascend_sort_dvec_dvecvec(eval, evec_expand, 0, nev-1);
     t4 = Get_time();
     eigen_time += t4-t3;
@@ -97,6 +96,14 @@ void Eigen_solver_amg_augmented(multigrid *amg,
     if(status) printf("Solving linear system...\n");
     linear_time += Correction_solve_linear(amg, 0, nev, eval, evec, param);
     if(status) printf("Solving linear system... done.\n");
+
+    for(j=0; j<nev; j++) {
+      //eval[j] = Multi_dvec_dmatcsr_dvec(evec[j], A, evec[j]) / Multi_dvec_dmatcsr_dvec(evec[j], M, evec[j]);
+      double rr_val = Multi_dvec_dmatcsr_dvec(evec[j], A, evec[j]) / Multi_dvec_dmatcsr_dvec(evec[j], M, evec[j]);
+      printf(" %02d    %20.15f    %20.15f    %20.15f\n", j, eval[j], rr_val, eval[j] - rr_val);
+      eval[j] = rr_val;
+    }
+    Insertion_ascend_sort_dvec_dvecvec(eval, evec, 0, nev-1);
 
     if(1)
     {

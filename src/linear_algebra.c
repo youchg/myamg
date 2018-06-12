@@ -620,6 +620,15 @@ double Multi_dvec_dvec(double *x, double *y, int length)
     return value;
 }
 
+double Multi_dvec_dmatcsr_dvec(double *x, dmatcsr *A, double *y)
+{
+  double *tmp = (double*)calloc(A->nr, sizeof(double));
+  Multi_dmatcsr_dvec(A, y, tmp);
+  double val = Multi_dvec_dvec(x, tmp, A->nr);
+  free(tmp); tmp = NULL;
+  return val;
+}
+
 /* z = a*x + b*y */
 void Sum_dvec_axpby    (double *x, double a, double *y, double b, double *z, int length)
 {
